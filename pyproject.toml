@@ -1,0 +1,16 @@
+[project]
+name = "said-platform"
+version = "0.1.0"
+description = "SAID device identity and theft case prototype"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "sqlalchemy>=2.0,<3",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic-settings>=2.5,<3",
+]
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
