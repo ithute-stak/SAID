@@ -5,6 +5,9 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from pydantic import BaseModel, Field
 from sqlalchemy import DateTime, ForeignKey, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
@@ -100,10 +103,21 @@ def database(request: Request):
 # Versioned Alembic migrations must be applied before starting API workers.
 from said.ownership import router as ownership_router
 
-app = FastAPI(title="SAID Platform API", version="0.6.0",
+app = FastAPI(title="SAID Platform API", version="0.7.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
+
+WEB_ROOT = Path(__file__).resolve().parent / "web"
+app.mount("/console/static", StaticFiles(directory=WEB_ROOT), name="console-static")
+
+@app.get("/console/", include_in_schema=False)
+def console():
+    return FileResponse(WEB_ROOT / "index.html", media_type="text/html", headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+    })
 
 @app.get("/health")
 def health():
@@ -146,7 +160,7 @@ def report_theft(device_id: str, payload: ReportRequest, db: Session = Depends(d
     report = TheftReport(id=str(uuid.uuid4()), device_id=device_id, incident_reference=payload.incident_reference)
     db.add(report)
     db.add(AuditEvent(id=str(uuid.uuid4()), action="theft.reported_pending_review", entity_type="theft_report", entity_id=report.id,
-                      actor_reference=actor.subject))
+                      actor_reference=actor.subject, institution_id=registration_institution(actor)))
     db.commit()
     return ReportResult(id=report.id, device_id=device_id, status=report.status)
 

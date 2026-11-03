@@ -96,7 +96,8 @@ def review_claim(claim_id: str, payload: ReviewInput, request: Request, db: Sess
     claim.reviewed_by = actor.subject
     db.add(AuditEvent(id=str(uuid.uuid4()), action="ownership." + payload.decision,
                       entity_type="ownership_claim", entity_id=claim.id,
-                      actor_reference=actor.subject))
+                      actor_reference=actor.subject,
+                      institution_id=registration_institution(actor)))
     # Review of supplied evidence never marks the National ID or ownership as verified.
     db.commit()
     return result(claim)

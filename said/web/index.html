@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>SAID Control | Powered by Ithute</title>
+<link rel="stylesheet" href="/console/static/style.css">
+<script type="module" src="/console/static/app.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" aria-label="SAID navigation">
+    <a class="brand" href="/console/" aria-label="SAID Control home">
+      <svg width="48" height="56" viewBox="0 0 48 56" role="img" aria-label="SAID shield"><path d="M24 3 44 11v15c0 15-10 23-20 27C14 49 4 41 4 26V11Z" fill="#15b8a6"/><rect x="17" y="13" width="14" height="25" rx="3" fill="#0b1f3a"/><path d="m16 30 6 6 12-14" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/></svg>
+      <span><strong>SAID</strong><small>Secure Asset Identity &amp; Detection</small></span>
+    </a>
+    <div class="nav-title">ADMINISTRATIVE WORKSPACE</div>
+    <nav aria-label="Modules">
+      <a href="#device-lookup">Device lookup</a>
+      <a href="#registration">Register device</a>
+      <a href="#theft-report">Theft reporting</a>
+      <a href="#ownership">Ownership review</a>
+    </nav>
+    <div class="sidebar-bottom"><strong>Powered by Ithute</strong><span>Digital Solutions</span><p>Prototype · No live network blocking</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>SAID Control / Internal prototype</span><span class="pill">Restricted access</span></header>
+    <div class="content">
+      <section class="intro">
+        <div><p class="eyebrow">SAID • DEVICE PROTECTION</p><h1>Secure device management</h1>
+        <p>Register devices, review ownership evidence, and manage reported incidents under institutional access controls.</p></div>
+        <span class="shield" aria-hidden="true">◈</span>
+      </section>
+      <div class="warning" role="note"><strong>Development preview.</strong> This is not a citizen account portal, government identity verification service, or live IMEI blocking interface.</div>
+      <section class="panel" aria-labelledby="connect-title">
+        <div class="panel-head"><div><h2 id="connect-title">Secure API connection</h2><p>Enter a short-lived institutional bearer token. The token stays only in this browser tab's memory and is cleared on disconnect.</p></div><span id="connection-indicator" class="pill">Disconnected</span></div>
+        <form id="connect-form" class="form-grid">
+          <label class="wide">Institutional access token <input id="token" name="token" type="password" autocomplete="off" required placeholder="Paste OIDC bearer token"></label>
+          <button type="submit">Connect</button><button type="button" class="secondary" id="disconnect">Disconnect</button>
+        </form>
+      </section>
+      <div class="cards">
+        <div class="metric"><span>Identity</span><strong>IMEI + Owner</strong><small>Registration is unverified by default</small></div>
+        <div class="metric"><span>Protection</span><strong>Reported</strong><small>Every incident requires review</small></div>
+        <div class="metric"><span>Security</span><strong>Tenant-scoped</strong><small>Authorization enforced by API</small></div>
+      </div>
+      <section class="panel" id="device-lookup"><h2>Device lookup</h2><p>Lookup by internal device UUID. Device records are available only to authorized institutions.</p>
+        <form id="lookup-form" class="form-grid"><label>Device ID <input name="device_id" required placeholder="UUID"></label><button type="submit">Find device</button></form><pre id="lookup-result" class="result" aria-live="polite">No device loaded.</pre>
+      </section>
+      <section class="panel" id="registration"><h2>Register device</h2><p>Requires registrar role. A registration does not prove legal ownership.</p>
+        <form id="register-form" class="form-grid">
+          <label>IMEI <input name="imei" required pattern="[0-9]{15}" inputmode="numeric" maxlength="15" placeholder="15 digits"></label>
+          <label>Owner reference <input name="owner_reference" required maxlength="120" placeholder="Opaque internal reference"></label>
+          <label>Make <input name="make" required maxlength="80"></label>
+          <label>Model <input name="model" required maxlength="80"></label>
+          <button type="submit">Register unverified device</button>
+        </form>
+        <pre id="register-result" class="result" aria-live="polite">No registration submitted.</pre>
+      </section>
+      <section class="panel" id="theft-report"><h2>Report lost or stolen device</h2><p>Requires case-worker authorization. Reports are opened for review and do not automatically block devices.</p>
+        <form id="report-form" class="form-grid"><label>Device ID <input name="device_id" required placeholder="UUID"></label><label>Incident reference <input name="incident_reference" required maxlength="120"></label><button type="submit">Open incident</button></form>
+        <pre id="report-result" class="result" aria-live="polite">No incident submitted.</pre>
+      </section>
+      <section class="panel" id="ownership"><h2>Ownership evidence</h2><p>Review existing evidence claims only. Evidence support is not National ID verification.</p>
+        <form id="claim-form" class="form-grid"><label>Claim ID <input name="claim_id" required placeholder="UUID"></label><button type="submit">View claim</button></form>
+        <pre id="claim-result" class="result" aria-live="polite">No claim loaded.</pre>
+        <h3>Submit evidence claim</h3>
+        <form id="create-claim-form" class="form-grid"><label>Device ID <input name="device_id" required></label><label>Applicant reference <input name="applicant_reference" maxlength="120" required></label><label>Evidence reference <input name="evidence_reference" maxlength="120" required></label><button type="submit">Submit for review</button></form>
+        <pre id="create-claim-result" class="result" aria-live="polite">No evidence submitted.</pre>
+        <h3>Authorized evidence review</h3>
+        <form id="review-form" class="form-grid"><label>Claim ID <input name="claim_id" required></label><label>Decision <select name="decision"><option value="evidence_supported">Evidence supported</option><option value="evidence_rejected">Evidence rejected</option></select></label><button type="submit">Record review decision</button></form>
+        <pre id="review-result" class="result" aria-live="polite">No decision recorded.</pre>
+      </section>
+      <footer>SAID — Secure Asset Identity &amp; Detection · Powered by Ithute Digital Solutions</footer>
+    </div>
+  </main>
+</div>
+</body>
+</html>
