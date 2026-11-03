@@ -19,10 +19,15 @@ def attach_rls_context(session: Session, transaction, connection):
         # than inheriting anything from an earlier pooled connection.
         connection.execute(text("SELECT set_config('said.institution', '', true)"))
         connection.execute(text("SELECT set_config('said.central', 'false', true)"))
+        connection.execute(text("SELECT set_config('said.subject', '', true)"))
         return
     connection.execute(
         text("SELECT set_config('said.institution', :institution, true)"),
         {"institution": actor.institution},
+    )
+    connection.execute(
+        text("SELECT set_config('said.subject', :subject, true)"),
+        {"subject": actor.subject},
     )
     connection.execute(
         text("SELECT set_config('said.central', :central, true)"),
