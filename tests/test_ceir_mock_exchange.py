@@ -14,8 +14,12 @@ def actor(institution, roles):
     with patch("said.main.current_principal", return_value=p), patch("said.ceir.api.current_principal", return_value=p):
         yield
 
+_next_test_imei = 0
+
 def sample_imei():
-    base = "356938035643" + str(uuid.uuid4().int % 100).zfill(2)
+    global _next_test_imei
+    _next_test_imei += 1
+    base = "860000000000" + str(_next_test_imei).zfill(2)
     for d in "0123456789":
         try:
             return validate_imei(base + d)
