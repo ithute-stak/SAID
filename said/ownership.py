@@ -9,7 +9,8 @@ from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from said.main import AuditEvent, Base, Device, database
-from said.security import allowed
+from said.security import current_principal
+from said.authorization import require_role, require_institution
 
 router = APIRouter(prefix="/api/v1/ownership", tags=["ownership-prototype"])
 
@@ -39,15 +40,24 @@ class ClaimResult(BaseModel):
     status: str
     identity_verified: bool = False
 
+def claim_device_institution(db: Session, claim: OwnershipClaim) -> str | None:
+    device = db.get(Device, claim.device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return device.institution_id
+
 def result(c: OwnershipClaim) -> ClaimResult:
     return ClaimResult(id=c.id, device_id=c.device_id, status=c.status,
                        identity_verified=False)
 
 @router.post("/claims", response_model=ClaimResult, status_code=201)
 def create_claim(payload: ClaimInput, request: Request, db: Session = Depends(database)):
-    actor = allowed(request, "said_admin", "registrar")
-    if db.get(Device, payload.device_id) is None:
+    actor = current_principal(request)
+    require_role(actor, "said_admin", "registrar")
+    device = db.get(Device, payload.device_id)
+    if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
+    require_institution(actor, device.institution_id)
     if db.scalar(select(OwnershipClaim.id).where(OwnershipClaim.device_id == payload.device_id)):
         raise HTTPException(status_code=409, detail="Existing claim requires separate dispute or appeal workflow")
     claim = OwnershipClaim(id=str(uuid.uuid4()), device_id=payload.device_id,
@@ -62,18 +72,22 @@ def create_claim(payload: ClaimInput, request: Request, db: Session = Depends(da
 
 @router.get("/claims/{claim_id}", response_model=ClaimResult)
 def fetch_claim(claim_id: str, request: Request, db: Session = Depends(database)):
-    allowed(request, "said_admin", "owner_reviewer", "registrar")
+    actor = current_principal(request)
+    require_role(actor, "said_admin", "owner_reviewer", "registrar")
     claim = db.get(OwnershipClaim, claim_id)
     if claim is None:
         raise HTTPException(status_code=404, detail="Ownership claim not found")
+    require_institution(actor, claim_device_institution(db, claim))
     return result(claim)
 
 @router.post("/claims/{claim_id}/review", response_model=ClaimResult)
 def review_claim(claim_id: str, payload: ReviewInput, request: Request, db: Session = Depends(database)):
-    actor = allowed(request, "said_admin", "owner_reviewer")
+    actor = current_principal(request)
+    require_role(actor, "said_admin", "owner_reviewer")
     claim = db.get(OwnershipClaim, claim_id)
     if claim is None:
         raise HTTPException(status_code=404, detail="Ownership claim not found")
+    require_institution(actor, claim_device_institution(db, claim))
     if claim.status != "pending_review":
         raise HTTPException(status_code=409, detail="Claim already reviewed")
     claim.status = payload.decision
