@@ -8,7 +8,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import DateTime, ForeignKey, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
-from said.security import allowed, Principal
+from said.security import current_principal, Principal
+from said.authorization import require_role, require_institution, registration_institution
 
 DATABASE_URL = os.getenv("SAID_DATABASE_URL", "sqlite:///./said.db")
 ADMIN_KEY = os.getenv("SAID_ADMIN_API_KEY", "")
@@ -25,6 +26,7 @@ class Device(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     imei: Mapped[str] = mapped_column(String(15), unique=True, nullable=False, index=True)
     owner_reference: Mapped[str] = mapped_column(String(120), nullable=False)
+    institution_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     make: Mapped[str] = mapped_column(String(80), nullable=False)
     model: Mapped[str] = mapped_column(String(80), nullable=False)
     verification_status: Mapped[str] = mapped_column(String(40), default="unverified", nullable=False)
@@ -84,7 +86,8 @@ class ReportResult(BaseModel):
     status: str
 
 def admin_auth(request: Request) -> Principal:
-    return allowed(request, "said_admin", "registrar", "case_worker")
+    """Authenticate; each route imposes its own role and record policy."""
+    return current_principal(request)
 
 def database():
     with SessionLocal() as session:
@@ -93,7 +96,7 @@ def database():
 # Versioned Alembic migrations must be applied before starting API workers.
 from said.ownership import router as ownership_router
 
-app = FastAPI(title="SAID Platform API", version="0.4.0",
+app = FastAPI(title="SAID Platform API", version="0.5.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
@@ -103,7 +106,8 @@ def health():
     return {"status": "ok", "service": "said-api"}
 
 @app.post("/api/v1/devices", response_model=DeviceResult, status_code=201, dependencies=[Depends(admin_auth)])
-def register(payload: Registration, db: Session = Depends(database)):
+def register(payload: Registration, db: Session = Depends(database), actor: Principal = Depends(admin_auth)):
+    require_role(actor, "said_admin", "registrar")
     try:
         imei = validate_imei(payload.imei)
     except ValueError as exc:
@@ -111,32 +115,42 @@ def register(payload: Registration, db: Session = Depends(database)):
     if db.scalar(select(Device).where(Device.imei == imei)):
         raise HTTPException(status_code=409, detail="Device IMEI already registered")
     device = Device(id=str(uuid.uuid4()), imei=imei,
-                    owner_reference=payload.owner_reference, make=payload.make, model=payload.model)
+                    owner_reference=payload.owner_reference, institution_id=registration_institution(actor),
+                    make=payload.make, model=payload.model)
     db.add(device)
-    db.add(AuditEvent(id=str(uuid.uuid4()), action="device.registered_unverified", entity_type="device", entity_id=device.id))
+    db.add(AuditEvent(id=str(uuid.uuid4()), action="device.registered_unverified", entity_type="device", entity_id=device.id,
+                      actor_reference=actor.subject))
     db.commit()
     return DeviceResult(id=device.id, imei_masked="***********" + imei[-4:], verification_status=device.verification_status)
 
 @app.get("/api/v1/devices/{device_id}", response_model=DeviceResult, dependencies=[Depends(admin_auth)])
-def get_device(device_id: str, db: Session = Depends(database)):
+def get_device(device_id: str, db: Session = Depends(database), actor: Principal = Depends(admin_auth)):
+    require_role(actor, "said_admin", "registrar", "case_worker", "owner_reviewer")
     device = db.get(Device, device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+    require_institution(actor, device.institution_id)
     return DeviceResult(id=device.id, imei_masked="***********" + device.imei[-4:], verification_status=device.verification_status)
 
 @app.post("/api/v1/devices/{device_id}/theft-reports", response_model=ReportResult, status_code=201, dependencies=[Depends(admin_auth)])
-def report_theft(device_id: str, payload: ReportRequest, db: Session = Depends(database)):
-    if not db.get(Device, device_id):
+def report_theft(device_id: str, payload: ReportRequest, db: Session = Depends(database), actor: Principal = Depends(admin_auth)):
+    require_role(actor, "said_admin", "case_worker")
+    device = db.get(Device, device_id)
+    if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+    require_institution(actor, device.institution_id)
     report = TheftReport(id=str(uuid.uuid4()), device_id=device_id, incident_reference=payload.incident_reference)
     db.add(report)
-    db.add(AuditEvent(id=str(uuid.uuid4()), action="theft.reported_pending_review", entity_type="theft_report", entity_id=report.id))
+    db.add(AuditEvent(id=str(uuid.uuid4()), action="theft.reported_pending_review", entity_type="theft_report", entity_id=report.id,
+                      actor_reference=actor.subject))
     db.commit()
     return ReportResult(id=report.id, device_id=device_id, status=report.status)
 
 @app.get("/api/v1/theft-reports/{report_id}", response_model=ReportResult, dependencies=[Depends(admin_auth)])
-def get_report(report_id: str, db: Session = Depends(database)):
+def get_report(report_id: str, db: Session = Depends(database), actor: Principal = Depends(admin_auth)):
+    require_role(actor, "said_admin", "case_worker")
     report = db.get(TheftReport, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+    require_institution(actor, report.device.institution_id)
     return ReportResult(id=report.id, device_id=report.device_id, status=report.status)

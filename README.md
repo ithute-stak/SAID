@@ -4,7 +4,7 @@
 
 SAID is an Ithute Digital Solutions product for phone ownership registration, IMEI validation, lost/stolen device reports and future authorized network identity cooperation.
 
-> Development status: foundational prototype. NOT a national CEIR, identity authority or operational network blocking system. LCA, Vodacom and Econet are prospective partners only.
+> Development status: foundational prototype with API-level institution isolation. NOT a national CEIR, identity authority or operational network blocking system. LCA, Vodacom and Econet are prospective partners only.
 
 ## Principles
 - Never modify device operating systems or require firmware changes.
@@ -25,4 +25,4 @@ docker compose up -d
 
 API docs: http://localhost:8000/docs (development-only X-Admin-Key or institutional JWT as configured).
 
-See `docs/INSTITUTIONAL_ACCESS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE_MIGRATIONS.md` and `docs/ROADMAP.md`.
+See `docs/INSTITUTION_ISOLATION.md`, `docs/INSTITUTIONAL_ACCESS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE_MIGRATIONS.md` and `docs/ROADMAP.md`.
