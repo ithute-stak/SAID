@@ -15,7 +15,7 @@ with admin.begin() as conn:
         "CREATE ROLE said_runtime_ci LOGIN PASSWORD 'temporary-ci-only' NOSUPERUSER NOBYPASSRLS"
     ))
     conn.execute(text("GRANT USAGE ON SCHEMA public TO said_runtime_ci"))
-    for table in ("devices", "theft_reports", "ownership_claims", "audit_events"):
+    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests"):
         conn.execute(text(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO said_runtime_ci"
         ))
