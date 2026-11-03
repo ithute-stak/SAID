@@ -1,0 +1,80 @@
+"""Admin-only, evidence-review prototype: never represents a verified National ID."""
+import uuid
+from datetime import datetime, timezone
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, select
+from sqlalchemy.orm import Mapped, Session, mapped_column
+
+from said.main import AuditEvent, Base, Device, admin_auth, database
+
+router = APIRouter(prefix="/api/v1/ownership", tags=["ownership-prototype"],
+                   dependencies=[Depends(admin_auth)])
+
+class OwnershipClaim(Base):
+    __tablename__ = "ownership_claims"
+    __table_args__ = (UniqueConstraint("device_id", name="uq_one_ownership_claim_per_device_phase2"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), nullable=False, index=True)
+    applicant_reference: Mapped[str] = mapped_column(String(120), nullable=False)
+    evidence_reference: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending_review")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+class ClaimInput(BaseModel):
+    device_id: str
+    applicant_reference: str = Field(min_length=1, max_length=120)
+    evidence_reference: str = Field(min_length=1, max_length=120)
+
+class ReviewInput(BaseModel):
+    decision: Literal["evidence_supported", "evidence_rejected"]
+
+class ClaimResult(BaseModel):
+    id: str
+    device_id: str
+    status: str
+    identity_verified: bool = False
+
+def result(c: OwnershipClaim) -> ClaimResult:
+    return ClaimResult(id=c.id, device_id=c.device_id, status=c.status,
+                       identity_verified=False)
+
+@router.post("/claims", response_model=ClaimResult, status_code=201)
+def create_claim(payload: ClaimInput, db: Session = Depends(database)):
+    if db.get(Device, payload.device_id) is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if db.scalar(select(OwnershipClaim.id).where(OwnershipClaim.device_id == payload.device_id)):
+        raise HTTPException(status_code=409, detail="Existing claim requires separate dispute or appeal workflow")
+    claim = OwnershipClaim(id=str(uuid.uuid4()), device_id=payload.device_id,
+                           applicant_reference=payload.applicant_reference,
+                           evidence_reference=payload.evidence_reference)
+    db.add(claim)
+    db.add(AuditEvent(id=str(uuid.uuid4()), action="ownership.claim_submitted",
+                      entity_type="ownership_claim", entity_id=claim.id))
+    db.commit()
+    return result(claim)
+
+@router.get("/claims/{claim_id}", response_model=ClaimResult)
+def fetch_claim(claim_id: str, db: Session = Depends(database)):
+    claim = db.get(OwnershipClaim, claim_id)
+    if claim is None:
+        raise HTTPException(status_code=404, detail="Ownership claim not found")
+    return result(claim)
+
+@router.post("/claims/{claim_id}/review", response_model=ClaimResult)
+def review_claim(claim_id: str, payload: ReviewInput, db: Session = Depends(database)):
+    claim = db.get(OwnershipClaim, claim_id)
+    if claim is None:
+        raise HTTPException(status_code=404, detail="Ownership claim not found")
+    if claim.status != "pending_review":
+        raise HTTPException(status_code=409, detail="Claim already reviewed")
+    claim.status = payload.decision
+    claim.reviewed_at = datetime.now(timezone.utc)
+    db.add(AuditEvent(id=str(uuid.uuid4()), action="ownership." + payload.decision,
+                      entity_type="ownership_claim", entity_id=claim.id))
+    # Review of supplied evidence never marks the National ID or ownership as verified.
+    db.commit()
+    return result(claim)
