@@ -1,19 +1,19 @@
 """Phase 1 admin-only foundation. Real citizen auth and operator connectors are NOT active."""
-import hmac
 import os
 import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import DateTime, ForeignKey, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
+from said.security import allowed, Principal
 
 DATABASE_URL = os.getenv("SAID_DATABASE_URL", "sqlite:///./said.db")
 ADMIN_KEY = os.getenv("SAID_ADMIN_API_KEY", "")
-if len(ADMIN_KEY) < 32 or ADMIN_KEY.startswith("REPLACE_"):
-    raise RuntimeError("SAID_ADMIN_API_KEY must be a configured secret of at least 32 characters")
+if os.getenv("SAID_ENVIRONMENT", "development").lower() in {"development", "test"} and (len(ADMIN_KEY) < 32 or ADMIN_KEY.startswith("REPLACE_")):
+    raise RuntimeError("SAID_ADMIN_API_KEY must be a configured secret of at least 32 characters in development")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -46,6 +46,7 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 def validate_imei(value: str) -> str:
@@ -82,9 +83,8 @@ class ReportResult(BaseModel):
     device_id: str
     status: str
 
-def admin_auth(x_admin_key: str | None = Header(None)) -> None:
-    if not x_admin_key or not hmac.compare_digest(x_admin_key, ADMIN_KEY):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+def admin_auth(request: Request) -> Principal:
+    return allowed(request, "said_admin", "registrar", "case_worker")
 
 def database():
     with SessionLocal() as session:
@@ -93,7 +93,7 @@ def database():
 # Versioned Alembic migrations must be applied before starting API workers.
 from said.ownership import router as ownership_router
 
-app = FastAPI(title="SAID Platform API", version="0.3.0",
+app = FastAPI(title="SAID Platform API", version="0.4.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)

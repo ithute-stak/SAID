@@ -50,8 +50,10 @@ jobs:
           assert expected <= set(inspector.get_table_names())
           assert inspector.get_foreign_keys('theft_reports')
           assert inspector.get_foreign_keys('ownership_claims')
+          assert 'reviewed_by' in {c['name'] for c in inspector.get_columns('ownership_claims')}
+          assert 'actor_reference' in {c['name'] for c in inspector.get_columns('audit_events')}
           assert any(c['name'] == 'uq_one_ownership_claim_per_device_phase2'
                      for c in inspector.get_unique_constraints('ownership_claims'))
           with engine.connect() as db:
-              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0001_initial"
+              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0002_access_audit"
           PY
