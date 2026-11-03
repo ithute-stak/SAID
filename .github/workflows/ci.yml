@@ -55,12 +55,14 @@ jobs:
           assert 'citizen_subject' in {c['name'] for c in inspector.get_columns('citizen_requests')}
           assert 'citizen_subject' in {c['name'] for c in inspector.get_columns('citizen_link_intents')}
           assert inspector.get_foreign_keys('citizen_link_intents')
+          assert inspector.get_foreign_keys('ceir_simulations')
+          assert inspector.get_foreign_keys('ceir_simulation_events')
           assert 'reviewed_by' in {c['name'] for c in inspector.get_columns('ownership_claims')}
           assert 'actor_reference' in {c['name'] for c in inspector.get_columns('audit_events')}
           assert any(c['name'] == 'uq_one_ownership_claim_per_device_phase2'
                      for c in inspector.get_unique_constraints('ownership_claims'))
           with engine.connect() as db:
-              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0006_link_intents"
+              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0007_ceir_sandbox"
           PY
       - name: Verify PostgreSQL row-level security with restricted database role
         env:
