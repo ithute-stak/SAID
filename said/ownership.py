@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from said.main import AuditEvent, Base, Device, database
 from said.security import current_principal
-from said.authorization import require_role, require_institution
+from said.authorization import require_role, require_institution, registration_institution
 
 router = APIRouter(prefix="/api/v1/ownership", tags=["ownership-prototype"])
 
@@ -66,7 +66,8 @@ def create_claim(payload: ClaimInput, request: Request, db: Session = Depends(da
     db.add(claim)
     db.add(AuditEvent(id=str(uuid.uuid4()), action="ownership.claim_submitted",
                       entity_type="ownership_claim", entity_id=claim.id,
-                      actor_reference=actor.subject))
+                      actor_reference=actor.subject,
+                      institution_id=registration_institution(actor)))
     db.commit()
     return result(claim)
 

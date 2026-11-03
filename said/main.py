@@ -10,6 +10,7 @@ from sqlalchemy import DateTime, ForeignKey, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 from said.security import current_principal, Principal
 from said.authorization import require_role, require_institution, registration_institution
+import said.rls  # transaction-scoped PostgreSQL RLS identity context
 
 DATABASE_URL = os.getenv("SAID_DATABASE_URL", "sqlite:///./said.db")
 ADMIN_KEY = os.getenv("SAID_ADMIN_API_KEY", "")
@@ -49,6 +50,7 @@ class AuditEvent(Base):
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
     actor_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    institution_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 def validate_imei(value: str) -> str:
@@ -89,14 +91,16 @@ def admin_auth(request: Request) -> Principal:
     """Authenticate; each route imposes its own role and record policy."""
     return current_principal(request)
 
-def database():
+def database(request: Request):
+    actor = current_principal(request)
     with SessionLocal() as session:
+        session.info['said_principal'] = actor
         yield session
 
 # Versioned Alembic migrations must be applied before starting API workers.
 from said.ownership import router as ownership_router
 
-app = FastAPI(title="SAID Platform API", version="0.5.0",
+app = FastAPI(title="SAID Platform API", version="0.6.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
@@ -119,7 +123,7 @@ def register(payload: Registration, db: Session = Depends(database), actor: Prin
                     make=payload.make, model=payload.model)
     db.add(device)
     db.add(AuditEvent(id=str(uuid.uuid4()), action="device.registered_unverified", entity_type="device", entity_id=device.id,
-                      actor_reference=actor.subject))
+                      actor_reference=actor.subject, institution_id=registration_institution(actor)))
     db.commit()
     return DeviceResult(id=device.id, imei_masked="***********" + imei[-4:], verification_status=device.verification_status)
 
