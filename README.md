@@ -18,9 +18,11 @@ SAID is an Ithute Digital Solutions product for phone ownership registration, IM
 ```bash
 cp .env.example .env
 # Set a long random SAID_ADMIN_API_KEY in .env (never commit it)
-docker compose up --build
+docker compose build
+docker compose run --rm api alembic upgrade head
+docker compose up -d
 ```
 
 API docs: http://localhost:8000/docs (requires X-Admin-Key on protected operations).
 
-See `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`.
+See `docs/ARCHITECTURE.md`, `docs/DATABASE_MIGRATIONS.md` and `docs/ROADMAP.md`.
