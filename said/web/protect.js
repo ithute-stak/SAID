@@ -45,6 +45,7 @@ el("connect").addEventListener("submit", event => {
 el("disconnect").addEventListener("click", () => {
   token = ""; el("connect").reset(); display("session", "Disconnected");
   display("inquiries", "Connect to see your inquiries.");
+  display("link-list", "Connect to view your link requests.");
 });
 el("new").addEventListener("submit", async event => {
   event.preventDefault(); display("result", "Submitting...");
@@ -56,3 +57,62 @@ el("new").addEventListener("submit", async event => {
   } catch (error) { display("result", error.message); }
 });
 el("load").addEventListener("click", load);
+
+async function loadLinks() {
+  display("link-list", "Loading...");
+  try {
+    const rows = await api("/api/v1/protect/link-intents");
+    const node = el("link-list");
+    node.replaceChildren();
+    if (!rows.length) {
+      node.textContent = "No ownership-link consent requests yet.";
+      return;
+    }
+    for (const item of rows) {
+      const box = document.createElement("div");
+      box.className = "item";
+      const heading = document.createElement("strong");
+      heading.textContent = "Consent: " + item.status.replaceAll("_", " ");
+      const reference = document.createElement("span");
+      reference.textContent = "Ownership inquiry: " + item.inquiry_id;
+      box.append(heading, reference);
+      if (item.status === "awaiting_independent_verification") {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "outline";
+        button.textContent = "Withdraw consent";
+        button.addEventListener("click", async () => {
+          try {
+            await api("/api/v1/protect/link-intents/" +
+              encodeURIComponent(item.id) + "/withdraw", "POST");
+            await loadLinks();
+          } catch (error) { display("link-result", error.message); }
+        });
+        box.append(button);
+      }
+      node.append(box);
+    }
+  } catch (error) {
+    display("link-list", error.message);
+  }
+}
+el("link-consent").addEventListener("submit", async event => {
+  event.preventDefault();
+  display("link-result", "Submitting consent...");
+  try {
+    const form = event.currentTarget;
+    if (!el("link-consent-check").checked) {
+      throw new Error("Explicit consent is required.");
+    }
+    const record = await api("/api/v1/protect/link-intents", "POST", {
+      inquiry_id: data(form).inquiry_id,
+      consent: true,
+      consent_version: "SAID-LINK-CONSENT-v1"
+    });
+    display("link-result", "Consent recorded: " + record.id +
+      " — awaiting independent verification. No device has been linked.");
+    form.reset();
+    await loadLinks();
+  } catch (error) { display("link-result", error.message); }
+});
+el("link-refresh").addEventListener("click", loadLinks);

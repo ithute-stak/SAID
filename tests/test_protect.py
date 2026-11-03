@@ -70,6 +70,8 @@ def test_protect_page_is_branded_and_data_api_restricted():
     assert "Content-Security-Policy" in page.headers
     assert client.get("/console/static/protect.js").status_code == 200
     assert client.get("/console/static/protect.css").status_code == 200
+    assert "Ownership-link consent" in page.text
+    assert "No device has been linked" in client.get("/console/static/protect.js").text
     js = client.get("/console/static/protect.js").text
     for forbidden in ("localStorage", "sessionStorage", "document.cookie", "X-Admin-Key"):
         assert forbidden not in js

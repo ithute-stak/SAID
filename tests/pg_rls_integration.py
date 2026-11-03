@@ -15,7 +15,7 @@ with admin.begin() as conn:
         "CREATE ROLE said_runtime_ci LOGIN PASSWORD 'temporary-ci-only' NOSUPERUSER NOBYPASSRLS"
     ))
     conn.execute(text("GRANT USAGE ON SCHEMA public TO said_runtime_ci"))
-    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests"):
+    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests", "citizen_link_intents"):
         conn.execute(text(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO said_runtime_ci"
         ))
@@ -146,3 +146,67 @@ with psycopg.connect(dsn) as conn:
         assert conn.execute("SELECT count(*) FROM citizen_requests").fetchone()[0] == 1
 
 print("Citizen-subject RLS tests passed")
+
+# Consent-only link intents require BOTH same subject and own ownership inquiry.
+with psycopg.connect(dsn) as conn:
+    own_inquiry = str(uuid.uuid4())
+    other_inquiry = str(uuid.uuid4())
+    intent_id = str(uuid.uuid4())
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-consent-a",))
+        conn.execute(
+            """INSERT INTO citizen_requests
+            (id, citizen_subject, category, device_reference, status, created_at)
+            VALUES (%s, 'citizen-consent-a', 'ownership_inquiry',
+                    'CONSENT_REF_A', 'pending_manual_review', now())""",
+            (own_inquiry,),
+        )
+        conn.execute(
+            """INSERT INTO citizen_link_intents
+            (id, citizen_subject, inquiry_id, status, consent_version, created_at)
+            VALUES (%s, 'citizen-consent-a', %s,
+                    'awaiting_independent_verification',
+                    'SAID-LINK-CONSENT-v1', now())""",
+            (intent_id, own_inquiry),
+        )
+        assert conn.execute("SELECT count(*) FROM citizen_link_intents").fetchone()[0] == 1
+    with conn.transaction():
+        assert conn.execute("SELECT count(*) FROM citizen_link_intents").fetchone()[0] == 0
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-consent-b",))
+        assert conn.execute("SELECT count(*) FROM citizen_link_intents").fetchone()[0] == 0
+        assert conn.execute("UPDATE citizen_link_intents SET status='withdrawn' WHERE id=%s",
+                            (intent_id,)).rowcount == 0
+        conn.execute(
+            """INSERT INTO citizen_requests
+            (id, citizen_subject, category, device_reference, status, created_at)
+            VALUES (%s, 'citizen-consent-b', 'ownership_inquiry',
+                    'CONSENT_REF_B', 'pending_manual_review', now())""",
+            (other_inquiry,),
+        )
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-consent-a",))
+        # Different citizen cannot be associated by merely supplying their inquiry ID.
+        try:
+            with conn.transaction():
+                conn.execute(
+                    """INSERT INTO citizen_link_intents
+                    (id, citizen_subject, inquiry_id, status, consent_version, created_at)
+                    VALUES (%s, 'citizen-consent-a', %s,
+                            'awaiting_independent_verification',
+                            'SAID-LINK-CONSENT-v1', now())""",
+                    (str(uuid.uuid4()), other_inquiry),
+                )
+        except psycopg.errors.InsufficientPrivilege:
+            pass
+        else:
+            raise AssertionError("Cross-subject inquiry was allowed in an intent")
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-consent-a",))
+        assert conn.execute("SELECT count(*) FROM citizen_link_intents").fetchone()[0] == 1
+
+print("Ownership-link consent RLS tests passed")

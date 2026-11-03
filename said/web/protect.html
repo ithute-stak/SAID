@@ -20,6 +20,20 @@
       <label>Private inquiry reference<input name="device_reference" minlength="3" maxlength="120" pattern="[A-Za-z0-9_-]{3,120}" placeholder="MY_DEVICE_CASE_1" required></label>
       <button type="submit">Submit inquiry</button></form><output id="result" aria-live="polite"></output></section>
   <section class="panel"><h2>My inquiries</h2><p>Only records created under your authenticated citizen subject are returned.</p><button id="load" type="button">Refresh my inquiries</button><div id="inquiries" aria-live="polite" class="inquiries">Connect to see your inquiries.</div></section>
+
+  <section class="panel" id="ownership-link">
+    <h2>Ownership-link consent (prototype)</h2>
+    <p>Only an inquiry already submitted by your own citizen account can be used. Consent starts an independent verification process; it does <strong>not</strong> register a phone or prove ownership.</p>
+    <form id="link-consent">
+      <label>My ownership inquiry ID<input name="inquiry_id" required maxlength="36" minlength="36" placeholder="Ownership inquiry UUID"></label>
+      <label class="consent-choice"><span><input id="link-consent-check" name="consent" type="checkbox" required> I authorize SAID to review this inquiry for a potential device-ownership link. I understand no device access will be granted by this action.</span></label>
+      <button type="submit">Record consent</button>
+    </form>
+    <output id="link-result" aria-live="polite"></output>
+    <h3>My link requests</h3>
+    <button type="button" id="link-refresh">Refresh link requests</button>
+    <div id="link-list" class="inquiries" aria-live="polite">Connect to view your link requests.</div>
+  </section>
   <footer>SAID Protect · Secure Asset Identity &amp; Detection · Powered by Ithute Digital Solutions</footer>
 </main>
 </body></html>
