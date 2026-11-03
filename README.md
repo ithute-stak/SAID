@@ -23,6 +23,6 @@ docker compose run --rm api alembic upgrade head
 docker compose up -d
 ```
 
-SAID Protect limited citizen inquiry prototype: http://localhost:8000/protect/ (requires a vetted citizen identity-provider bearer token; no ownership verification).\n\nSAID Control internal prototype: http://localhost:8000/console/ (requires institutional bearer token; no anonymous citizen access).\n\nAPI docs: http://localhost:8000/docs (development-only X-Admin-Key or institutional JWT as configured).
+SAID Protect consent-only ownership-link groundwork: see `docs/OWNERSHIP_LINKING_PHASE9.md`. No verified device ownership or device entitlement is issued.\n\nSAID Protect limited citizen inquiry prototype: http://localhost:8000/protect/ (requires a vetted citizen identity-provider bearer token; no ownership verification).\n\nSAID Control internal prototype: http://localhost:8000/console/ (requires institutional bearer token; no anonymous citizen access).\n\nAPI docs: http://localhost:8000/docs (development-only X-Admin-Key or institutional JWT as configured).
 
-See `docs/SAID_PROTECT.md`, `docs/INSTITUTION_ISOLATION.md`, `docs/INSTITUTIONAL_ACCESS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE_MIGRATIONS.md` and `docs/ROADMAP.md`.
+See `docs/OWNERSHIP_LINKING_PHASE9.md`, `docs/SAID_PROTECT.md`, `docs/INSTITUTION_ISOLATION.md`, `docs/INSTITUTIONAL_ACCESS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE_MIGRATIONS.md` and `docs/ROADMAP.md`.
