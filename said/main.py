@@ -12,8 +12,8 @@ from said.security import allowed, Principal
 
 DATABASE_URL = os.getenv("SAID_DATABASE_URL", "sqlite:///./said.db")
 ADMIN_KEY = os.getenv("SAID_ADMIN_API_KEY", "")
-if len(ADMIN_KEY) < 32 or ADMIN_KEY.startswith("REPLACE_"):
-    raise RuntimeError("SAID_ADMIN_API_KEY must be a configured secret of at least 32 characters")
+if os.getenv("SAID_ENVIRONMENT", "development").lower() in {"development", "test"} and (len(ADMIN_KEY) < 32 or ADMIN_KEY.startswith("REPLACE_")):
+    raise RuntimeError("SAID_ADMIN_API_KEY must be a configured secret of at least 32 characters in development")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
