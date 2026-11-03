@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>SAID Protect | Powered by Ithute</title>
+<link rel="stylesheet" href="/console/static/protect.css">
+<script type="module" src="/console/static/protect.js"></script>
+</head>
+<body>
+<header class="brandbar"><div class="brand"><span class="shield" aria-hidden="true">⬡</span><div><strong>SAID <em>Protect</em></strong><small>Secure Asset Identity &amp; Detection</small></div></div><span class="ithute">Powered by <b>Ithute</b></span></header>
+<main>
+  <section class="hero"><p class="eyebrow">WELCOME TO SAID PROTECT</p><h1>Protecting what connects you.</h1><p>Start a secure inquiry about a mobile device. Your request remains pending until an authorized team reviews it.</p><span class="tag">Citizen prototype • No live device blocking</span></section>
+  <section class="notice" role="note"><b>Development-only service.</b> This is not an official ownership registration, identity verification, police report or lost-phone tracking system. Do not enter National IDs, phone numbers, SIM details, full IMEIs or other personal information.</section>
+  <section class="panel"><h2>Connect your citizen account</h2><p>For controlled testing, supply a short-lived OIDC bearer token with the citizen role. This page does not create an account or verify your identity.</p>
+    <form id="connect"><label>Citizen access token<input name="token" type="password" required autocomplete="off" placeholder="Development bearer token"></label><button type="submit">Connect</button><button id="disconnect" type="button" class="outline">Disconnect</button></form><output id="session">Disconnected</output></section>
+  <div class="tiles"><article><span>01</span><h3>Start inquiry</h3><p>Submit a reference for authorized manual review.</p></article><article><span>02</span><h3>Track progress</h3><p>See statuses for your own submitted inquiries.</p></article><article><span>03</span><h3>Privacy-first</h3><p>Do not share identity documents in this prototype.</p></article></div>
+  <section class="panel" id="new-request"><h2>New device inquiry</h2><p>Use only an internal reference you invent for this inquiry (letters, numbers, underscores or dashes). Do not use an IMEI or National ID.</p>
+    <form id="new"><label>Inquiry type<select name="category"><option value="device_enrollment_inquiry">Device enrollment question</option><option value="lost_device_inquiry">Lost device question</option><option value="ownership_inquiry">Ownership question</option></select></label>
+      <label>Private inquiry reference<input name="device_reference" minlength="3" maxlength="120" pattern="[A-Za-z0-9_-]{3,120}" placeholder="MY_DEVICE_CASE_1" required></label>
+      <button type="submit">Submit inquiry</button></form><output id="result" aria-live="polite"></output></section>
+  <section class="panel"><h2>My inquiries</h2><p>Only records created under your authenticated citizen subject are returned.</p><button id="load" type="button">Refresh my inquiries</button><div id="inquiries" aria-live="polite" class="inquiries">Connect to see your inquiries.</div></section>
+  <footer>SAID Protect · Secure Asset Identity &amp; Detection · Powered by Ithute Digital Solutions</footer>
+</main>
+</body></html>

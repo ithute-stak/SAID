@@ -15,7 +15,7 @@ with admin.begin() as conn:
         "CREATE ROLE said_runtime_ci LOGIN PASSWORD 'temporary-ci-only' NOSUPERUSER NOBYPASSRLS"
     ))
     conn.execute(text("GRANT USAGE ON SCHEMA public TO said_runtime_ci"))
-    for table in ("devices", "theft_reports", "ownership_claims", "audit_events"):
+    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests"):
         conn.execute(text(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO said_runtime_ci"
         ))
@@ -113,3 +113,36 @@ with psycopg.connect(dsn) as conn:
         assert conn.execute("SELECT count(*) FROM audit_events").fetchone()[0] == 1
 
 print("PostgreSQL RLS isolation tests passed")
+
+# Citizen requests are additionally isolated at the individual OIDC subject level.
+with psycopg.connect(dsn) as conn:
+    citizen_id = str(uuid.uuid4())
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-a",))
+        conn.execute(
+            """INSERT INTO citizen_requests
+               (id, citizen_subject, category, device_reference, status, created_at)
+               VALUES (%s, 'citizen-a', 'lost_device_inquiry',
+                       'MY_CASE_SAMPLE', 'pending_manual_review', now())""",
+            (citizen_id,),
+        )
+        assert conn.execute("SELECT count(*) FROM citizen_requests").fetchone()[0] == 1
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-b",))
+        assert conn.execute("SELECT count(*) FROM citizen_requests").fetchone()[0] == 0
+        assert conn.execute("UPDATE citizen_requests SET status='resolved' WHERE id=%s",
+                            (citizen_id,)).rowcount == 0
+    with conn.transaction():
+        assert conn.execute("SELECT count(*) FROM citizen_requests").fetchone()[0] == 0
+    with conn.transaction():
+        set_tenant(conn, "operator-a")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-a",))
+        assert conn.execute("SELECT count(*) FROM citizen_requests").fetchone()[0] == 0
+    with conn.transaction():
+        set_tenant(conn, "citizens")
+        conn.execute("SELECT set_config('said.subject', %s, true)", ("citizen-a",))
+        assert conn.execute("SELECT count(*) FROM citizen_requests").fetchone()[0] == 1
+
+print("Citizen-subject RLS tests passed")
