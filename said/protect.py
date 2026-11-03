@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import DateTime, ForeignKey, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -33,6 +33,13 @@ class CitizenIntake(BaseModel):
     # This is an opaque, non-sensitive reference, NOT a National ID, phone
     # number, IMEI, document scan, or proof of ownership.
     device_reference: str = Field(min_length=3, max_length=120, pattern=r"^[A-Za-z0-9_-]{3,120}$")
+
+    @field_validator("device_reference")
+    @classmethod
+    def reject_numeric_identifiers(cls, value: str) -> str:
+        if value.isdigit():
+            raise ValueError("Use a reference you invent, not an IMEI, ID or telephone number")
+        return value
 
 class CitizenRequestView(BaseModel):
     id: str
