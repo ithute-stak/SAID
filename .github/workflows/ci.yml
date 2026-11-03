@@ -7,6 +7,20 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: said_ci
+          POSTGRES_USER: said_ci
+          POSTGRES_PASSWORD: said_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U said_ci -d said_ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,3 +28,30 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -e '.[test]'
       - run: python -m pytest -q
+      - name: Check clean migration on SQLite
+        env:
+          SAID_DATABASE_URL: sqlite:////tmp/said-migration-ci.db
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+        run: |
+          alembic upgrade head
+          alembic current
+          alembic upgrade head
+      - name: Verify migration on PostgreSQL with real constraints
+        env:
+          SAID_DATABASE_URL: postgresql+psycopg://said_ci:said_ci_password@localhost:5432/said_ci
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+        run: |
+          alembic upgrade head
+          python - <<'PY'
+          from sqlalchemy import inspect, text
+          from said.main import engine
+          inspector = inspect(engine)
+          expected = {'devices', 'theft_reports', 'audit_events', 'ownership_claims', 'alembic_version'}
+          assert expected <= set(inspector.get_table_names())
+          assert inspector.get_foreign_keys('theft_reports')
+          assert inspector.get_foreign_keys('ownership_claims')
+          assert any(c['name'] == 'uq_one_ownership_claim_per_device_phase2'
+                     for c in inspector.get_unique_constraints('ownership_claims'))
+          with engine.connect() as db:
+              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0001_initial"
+          PY

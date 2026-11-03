@@ -90,11 +90,10 @@ def database():
     with SessionLocal() as session:
         yield session
 
-# Prototype-only bootstrap; replace create_all with reviewed Alembic migrations before deployment.
-from said.ownership import router as ownership_router  # register model before metadata creation
-Base.metadata.create_all(bind=engine)
+# Versioned Alembic migrations must be applied before starting API workers.
+from said.ownership import router as ownership_router
 
-app = FastAPI(title="SAID Platform API", version="0.2.0",
+app = FastAPI(title="SAID Platform API", version="0.3.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
