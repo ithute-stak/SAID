@@ -103,12 +103,14 @@ def database(request: Request):
 # Versioned Alembic migrations must be applied before starting API workers.
 from said.ownership import router as ownership_router
 from said.protect import router as protect_router
+from said.links import router as links_router
 
-app = FastAPI(title="SAID Platform API", version="0.8.0",
+app = FastAPI(title="SAID Platform API", version="0.9.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
 app.include_router(protect_router)
+app.include_router(links_router)
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 app.mount("/console/static", StaticFiles(directory=WEB_ROOT), name="console-static")
