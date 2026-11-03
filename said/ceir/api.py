@@ -48,12 +48,12 @@ def create_entry(payload: CreateSimulation, request: Request, db: Session = Depe
     if db.get(Device, payload.device_id) is None:
         raise HTTPException(status_code=404, detail="Device not found")
     row = CEIRSimulation(id=str(uuid.uuid4()), device_id=payload.device_id)
-    db.add(row)
-    db.flush()
-    db.add(CEIRSimulationEvent(id=str(uuid.uuid4()), simulation_id=row.id,
-                               proposed_status="unassessed", reason_reference="sandbox_created",
-                               actor_reference=actor.subject))
     try:
+        db.add(row)
+        db.flush()
+        db.add(CEIRSimulationEvent(id=str(uuid.uuid4()), simulation_id=row.id,
+                                   proposed_status="unassessed", reason_reference="sandbox_created",
+                                   actor_reference=actor.subject))
         db.commit()
     except IntegrityError:
         db.rollback()
