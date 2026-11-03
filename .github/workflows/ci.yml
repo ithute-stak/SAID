@@ -51,10 +51,16 @@ jobs:
           assert inspector.get_foreign_keys('theft_reports')
           assert inspector.get_foreign_keys('ownership_claims')
           assert 'institution_id' in {c['name'] for c in inspector.get_columns('devices')}
+          assert 'institution_id' in {c['name'] for c in inspector.get_columns('audit_events')}
           assert 'reviewed_by' in {c['name'] for c in inspector.get_columns('ownership_claims')}
           assert 'actor_reference' in {c['name'] for c in inspector.get_columns('audit_events')}
           assert any(c['name'] == 'uq_one_ownership_claim_per_device_phase2'
                      for c in inspector.get_unique_constraints('ownership_claims'))
           with engine.connect() as db:
-              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0003_institution"
+              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0004_rls"
           PY
+      - name: Verify PostgreSQL row-level security with restricted database role
+        env:
+          SAID_DATABASE_URL: postgresql+psycopg://said_ci:said_ci_password@localhost:5432/said_ci
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+        run: python tests/pg_rls_integration.py
