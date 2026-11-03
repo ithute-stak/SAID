@@ -91,10 +91,13 @@ def database():
         yield session
 
 # Prototype-only bootstrap; replace create_all with reviewed Alembic migrations before deployment.
+from said.ownership import router as ownership_router  # register model before metadata creation
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="SAID Platform API", version="0.1.0",
+app = FastAPI(title="SAID Platform API", version="0.2.0",
               description="Admin-only prototype. No identity verification or network blocking.")
+
+app.include_router(ownership_router)
 
 @app.get("/health")
 def health():
