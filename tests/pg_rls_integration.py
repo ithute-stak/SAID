@@ -15,7 +15,7 @@ with admin.begin() as conn:
         "CREATE ROLE said_runtime_ci LOGIN PASSWORD 'temporary-ci-only' NOSUPERUSER NOBYPASSRLS"
     ))
     conn.execute(text("GRANT USAGE ON SCHEMA public TO said_runtime_ci"))
-    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests", "citizen_link_intents"):
+    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests", "citizen_link_intents", "ceir_simulations", "ceir_simulation_events"):
         conn.execute(text(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO said_runtime_ci"
         ))
@@ -210,3 +210,16 @@ with psycopg.connect(dsn) as conn:
         assert conn.execute("SELECT count(*) FROM citizen_link_intents").fetchone()[0] == 1
 
 print("Ownership-link consent RLS tests passed")
+
+# The new CEIR sandbox is central-only even for privileged institutional users.
+with psycopg.connect(dsn) as conn:
+    with conn.transaction():
+        set_tenant(conn, "operator-a")
+        assert conn.execute("SELECT count(*) FROM ceir_simulations").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM ceir_simulation_events").fetchone()[0] == 0
+    with conn.transaction():
+        set_tenant(conn, "said-central", central=True)
+        assert conn.execute("SELECT count(*) FROM ceir_simulations").fetchone()[0] == 0
+    with conn.transaction():
+        assert conn.execute("SELECT count(*) FROM ceir_simulations").fetchone()[0] == 0
+print("CEIR sandbox central RLS checks passed")
