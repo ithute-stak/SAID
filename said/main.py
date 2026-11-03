@@ -90,6 +90,9 @@ def database():
     with SessionLocal() as session:
         yield session
 
+# Prototype-only bootstrap; replace create_all with reviewed Alembic migrations before deployment.
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="SAID Platform API", version="0.1.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
