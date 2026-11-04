@@ -100,3 +100,6 @@ jobs:
           SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
           SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
         run: python tests/pg_revision_resilience.py
+
+      - name: Verify SAID security release workflow policy (no deployment)
+        run: python -m said.release_gate --workflow .github/workflows/ci.yml
