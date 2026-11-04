@@ -77,12 +77,14 @@ def propose(entry_id: str, payload: ProposeStatus, request: Request, db: Session
                         .values(proposed_status=payload.proposed_status,
                                 revision=CEIRSimulation.revision + 1))
     if result.rowcount != 1:
+        db.rollback()
         raise HTTPException(status_code=409, detail="Entry missing or revision conflict")
     db.add(CEIRSimulationEvent(id=str(uuid.uuid4()), simulation_id=entry_id,
                                proposed_status=payload.proposed_status,
                                reason_reference=payload.reason_reference,
                                actor_reference=actor.subject))
-    db.commit()
+    from said.ceir.governance import commit_case
+    commit_case(db)
     return view(db.get(CEIRSimulation, entry_id))
 
 @router.get("/entries/{entry_id}/events")
