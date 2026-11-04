@@ -10,6 +10,7 @@ import json
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -27,7 +28,7 @@ KEY_ID = re.compile(r"^[A-Za-z0-9_.-]{3,64}$")
 
 class Manifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    schema: str = Field(pattern=r"^said\.mock\.audit-checkpoint\.v1$")
+    schema: Literal["said.mock.audit-checkpoint.v1"]
     checkpoint_id: str = Field(min_length=36, max_length=36)
     investigation_id: str = Field(min_length=36, max_length=36)
     sequence: int = Field(ge=1)
@@ -37,7 +38,7 @@ class Manifest(BaseModel):
 
 class SignedReceipt(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    version: str = Field(pattern=r"^said\\.mock\\.receipt\\.v1$")
+    version: Literal["said.mock.receipt.v1"]
     key_id: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     manifest: Manifest
     manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
