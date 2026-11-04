@@ -74,6 +74,10 @@ def test_receipt_corruption_fails_before_backup(tmp_path):
         # Simulate a compromised DB owner replacing protective triggers.
         db.execute("DROP TRIGGER receipts_immutable_update")
         db.execute("UPDATE receipts SET receipt_digest = ?", ("0" * 64,))
+        with pytest.raises(ValueError, match="Append-only protection missing"):
+            inspect_store(db)
+        db.execute("""CREATE TRIGGER receipts_immutable_update
+            BEFORE UPDATE ON receipts BEGIN SELECT RAISE(ABORT,'append-only receipts'); END""")
         with pytest.raises(ValueError, match="digest mismatch"):
             inspect_store(db)
         with pytest.raises(ValueError):
