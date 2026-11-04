@@ -17,10 +17,11 @@ from .drill import recovery_drill
 from .key_policy import validate_registry
 from .operations import health_report, check_inventory, record_drill
 from .readiness import check_unit, readiness_report
+from .host_evidence import evaluate_host_snapshot, evidence_digest
 
 def run():
     parser = argparse.ArgumentParser(description="SAID mock independent audit authority (offline only)")
-    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry", "health", "inventory", "drill-report", "check-unit", "readiness"])
+    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry", "health", "inventory", "drill-report", "check-unit", "readiness", "assess-host"])
     parser.add_argument("--store", required=True)
     parser.add_argument("--key-file")
     parser.add_argument("--key-id")
@@ -35,7 +36,18 @@ def run():
     parser.add_argument("--report-path")
     parser.add_argument("--unit-file")
     parser.add_argument("--assessment")
+    parser.add_argument("--snapshot")
     args = parser.parse_args()
+    if args.action == "assess-host":
+        if not args.snapshot:
+            parser.error("assess-host requires --snapshot")
+        raw = json.loads(Path(args.snapshot).read_text())
+        evaluation = evaluate_host_snapshot(raw)
+        result = evidence_digest(raw, evaluation)
+        print(json.dumps(result, sort_keys=True))
+        if not evaluation["passed"]:
+            raise SystemExit(2)
+        return
     if args.action == "check-unit":
         if not args.unit_file:
             parser.error("check-unit requires --unit-file")
