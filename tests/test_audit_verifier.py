@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fastapi.testclient import TestClient
 
-from said.ceir.verifier import SignedReceipt, canonical_bytes, signing_bytes
+from said.ceir.verifier import canonical_bytes
 from said.main import app
 from said.security import Principal
 
@@ -46,7 +46,6 @@ def receipt_fixture(monkeypatch):
         "issued_at": datetime.now(timezone.utc).isoformat(),
         "signature_b64": "",
     }
-    unsigned = SignedReceipt.model_construct(**{**body, "manifest": body["manifest"]})
     # Build canonical signing payload without persisting any private key.
     signing_document = {k: body[k] for k in (
         "version", "key_id", "manifest", "manifest_sha256", "issued_at")}
