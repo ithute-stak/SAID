@@ -12,6 +12,12 @@ import re
 import urllib.error
 import urllib.request
 
+class RejectRedirects(urllib.request.HTTPRedirectHandler):
+    """Never forward a read token to any redirected destination."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("GitHub API redirect rejected")
+
+
 from said.release_gate import CI_WORKFLOW_STEPS
 
 REPO = "ithute-stak/SAID"
@@ -37,7 +43,7 @@ def github_json(path: str, token: str) -> dict:
                  "X-GitHub-Api-Version": "2022-11-28",
                  "Authorization": "Bearer " + token,
                  "User-Agent": "said-release-verifier/0.31"})
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with urllib.request.build_opener(RejectRedirects()).open(request, timeout=10) as response:
         if response.status != 200:
             raise ValueError("GitHub response was not successful")
         payload = response.read(MAX_RESPONSE + 1)
@@ -60,7 +66,22 @@ def verify_run(run: dict, jobs: dict, commit_sha: str, run_id: int) -> dict:
         problems.append("commit_mismatch")
     if run.get("name") != EXPECTED_WORKFLOW:
         problems.append("workflow_mismatch")
-    if run.get("event") not in ("pull_request", "push"):
+    if run.get("path") != ".github/workflows/ci.yml":
+        problems.append("workflow_path_mismatch")
+    event = run.get("event")
+    if event == "pull_request":
+        pull_requests = run.get("pull_requests")
+        if not isinstance(pull_requests, list) or not any(
+            isinstance(pr, dict) and
+            pr.get("base", {}).get("ref") == "main" and
+            pr.get("head", {}).get("sha") == commit_sha
+            for pr in pull_requests
+        ):
+            problems.append("pull_request_main_base_not_verified")
+    elif event == "push":
+        if run.get("head_branch") != "main":
+            problems.append("unexpected_push_branch")
+    else:
         problems.append("unapproved_event_type")
     if run.get("status") != "completed" or run.get("conclusion") != "success":
         problems.append("workflow_not_successful")
@@ -86,6 +107,9 @@ def verify_run(run: dict, jobs: dict, commit_sha: str, run_id: int) -> dict:
         if not isinstance(steps, list):
             problems.append("job_steps_missing")
             steps = []
+        names = [step.get("name") for step in steps if isinstance(step, dict)]
+        if len(names) != len(set(names)):
+            problems.append("duplicate_job_steps")
         for name in REQUIRED_STEPS:
             matches = [step for step in steps if step.get("name") == name]
             if len(matches) != 1 or matches[0].get("status") != "completed" or matches[0].get("conclusion") != "success":
@@ -117,6 +141,10 @@ def verify_branch_protection(protection: dict) -> dict:
         reviews.get("required_approving_review_count", 0) < 1
     ):
         issues.append("required_independent_pr_review_missing")
+    if protection.get("allow_force_pushes", {}).get("enabled"):
+        issues.append("force_pushes_allowed")
+    if protection.get("allow_deletions", {}).get("enabled"):
+        issues.append("protected_branch_deletion_allowed")
     if not protection.get("enforce_admins", {}).get("enabled"):
         issues.append("admins_can_bypass_branch_protection")
     return {"verified_policy_fields": not issues, "issues": issues,
