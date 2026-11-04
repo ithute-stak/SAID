@@ -47,14 +47,20 @@ def digest_of(row: ReviewLedger) -> str:
     }, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
+def lock_case(db: Session, case_id: str) -> MockInvestigation:
+    """Acquire owning investigation lock before child-state writes."""
+    row = db.scalar(select(MockInvestigation).where(
+        MockInvestigation.id == case_id).with_for_update())
+    if row is None:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    return row
+
+
 def append_event(db: Session, case_id: str, action: str, actor: str, reference: str):
     # Serialize ledger writers using the owning investigation row on PostgreSQL.
     # SQLite lacks SELECT FOR UPDATE; its single-writer behavior and the unique
     # (investigation_id, sequence) constraint remain secondary safeguards.
-    parent = db.scalar(select(MockInvestigation.id).where(
-        MockInvestigation.id == case_id).with_for_update())
-    if parent is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    lock_case(db, case_id)
     history = db.scalars(select(ReviewLedger).where(
         ReviewLedger.investigation_id == case_id).order_by(ReviewLedger.sequence)).all()
     previous = ZERO_DIGEST
