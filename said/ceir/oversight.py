@@ -35,6 +35,7 @@ class MockCheckpoint(Base):
         ForeignKey("ceir_mock_investigations.id"), nullable=False, index=True)
     sequence: Mapped[int] = mapped_column(nullable=False)
     head_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason_reference: Mapped[str] = mapped_column(String(120), nullable=False)
     checkpoint_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -90,9 +91,9 @@ def valid_head(db: Session, investigation_id: str):
     return len(rows), previous
 
 
-def checkpoint_hash(case_id: str, sequence: int, head: str) -> str:
+def checkpoint_hash(case_id: str, sequence: int, head: str, reason: str) -> str:
     content = json.dumps({"investigation_id": case_id, "sequence": sequence,
-                          "head_digest": head}, sort_keys=True, separators=(",", ":"))
+                          "head_digest": head, "reason_reference": reason}, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -127,7 +128,8 @@ def create_checkpoint(payload: ReferenceInput, request: Request, db: Session = D
     row = MockCheckpoint(
         id=str(uuid.uuid4()), investigation_id=case.id,
         sequence=sequence, head_digest=head,
-        checkpoint_digest=checkpoint_hash(case.id, sequence, head),
+        reason_reference=payload.reason_reference,
+        checkpoint_digest=checkpoint_hash(case.id, sequence, head, payload.reason_reference),
         recorded_by=actor.subject)
     try:
         db.add(row)
@@ -141,6 +143,7 @@ def create_checkpoint(payload: ReferenceInput, request: Request, db: Session = D
 def checkpoint_view(row: MockCheckpoint):
     return {"id": row.id, "investigation_id": row.investigation_id,
             "sequence": row.sequence, "head_digest": row.head_digest,
+            "reason_reference": row.reason_reference,
             "checkpoint_digest": row.checkpoint_digest,
             "recorded_by": row.recorded_by, "simulated": True,
             "externally_anchored": False}
@@ -167,7 +170,7 @@ def check_checkpoints(investigation_id: str, request: Request,
     for point in checkpoints:
         event = by_sequence.get(point.sequence)
         if event is None or point.head_digest != event.digest or point.checkpoint_digest != checkpoint_hash(
-                case.id, point.sequence, point.head_digest):
+                case.id, point.sequence, point.head_digest, point.reason_reference):
             valid = False
             break
     return {"valid": valid, "checkpoints": len(checkpoints),
