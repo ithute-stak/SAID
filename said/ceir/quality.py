@@ -166,7 +166,8 @@ def review(investigation_id: str, payload: ReviewInput, request: Request, db: Se
     try:
         append_event(db, row.id, "review_" + payload.decision,
                      actor.subject, payload.decision_reference)
-        db.commit()
+        from said.ceir.governance import commit_case
+        commit_case(db)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Concurrent review ledger conflict") from None
