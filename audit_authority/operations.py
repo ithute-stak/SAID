@@ -110,6 +110,8 @@ def record_drill(source: str, parent: str, report_path: str) -> dict:
         flags |= os.O_NOFOLLOW
     fd = os.open(output, flags, 0o600)
     try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("Report must be a regular file")
         if os.fstat(fd).st_mode & (stat.S_IRWXG | stat.S_IRWXO):
             raise ValueError("Unsafe report permissions")
         os.write(fd, (json.dumps(event, sort_keys=True) + "\n").encode("utf-8"))
