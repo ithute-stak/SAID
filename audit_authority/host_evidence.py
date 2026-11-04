@@ -35,8 +35,9 @@ def evaluate_host_snapshot(raw: dict) -> dict:
     """Review a supplied host snapshot and strictly reject unknown input fields."""
     data = HostSnapshot.model_validate(raw)
     issues = []
-    age = (datetime.now(timezone.utc) - data.collected_at).total_seconds()
-    if data.collected_at.tzinfo is None or age < -300 or age > 86400:
+    age = ((datetime.now(timezone.utc) - data.collected_at).total_seconds()
+           if data.collected_at.tzinfo is not None else float("inf"))
+    if age < -300 or age > 86400:
         issues.append("snapshot_not_current")
     for key, expected in HARDENING.items():
         if data.unit_properties.get(key, "").lower() != expected.lower():
