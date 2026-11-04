@@ -15,7 +15,7 @@ with admin.begin() as conn:
         "CREATE ROLE said_runtime_ci LOGIN PASSWORD 'temporary-ci-only' NOSUPERUSER NOBYPASSRLS"
     ))
     conn.execute(text("GRANT USAGE ON SCHEMA public TO said_runtime_ci"))
-    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests", "citizen_link_intents", "ceir_simulations", "ceir_simulation_events", "ceir_mock_exchanges", "ceir_mock_exchange_events", "ceir_mock_observations", "ceir_mock_investigations", "ceir_mock_provenance", "ceir_mock_assessments", "ceir_mock_review_ledger", "ceir_mock_appeals"):
+    for table in ("devices", "theft_reports", "ownership_claims", "audit_events", "citizen_requests", "citizen_link_intents", "ceir_simulations", "ceir_simulation_events", "ceir_mock_exchanges", "ceir_mock_exchange_events", "ceir_mock_observations", "ceir_mock_investigations", "ceir_mock_provenance", "ceir_mock_assessments", "ceir_mock_review_ledger", "ceir_mock_appeals", "ceir_mock_checkpoints", "ceir_mock_legal_holds"):
         conn.execute(text(
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO said_runtime_ci"
         ))
@@ -281,3 +281,15 @@ with psycopg.connect(dsn) as conn:
     with conn.transaction():
         assert conn.execute("SELECT count(*) FROM ceir_mock_appeals").fetchone()[0] == 0
 print("SAID appeals central RLS checks passed")
+
+with psycopg.connect(dsn) as conn:
+    with conn.transaction():
+        set_tenant(conn, "operator-a")
+        assert conn.execute("SELECT count(*) FROM ceir_mock_checkpoints").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM ceir_mock_legal_holds").fetchone()[0] == 0
+    with conn.transaction():
+        set_tenant(conn, "said-central", central=True)
+        assert conn.execute("SELECT count(*) FROM ceir_mock_checkpoints").fetchone()[0] == 0
+    with conn.transaction():
+        assert conn.execute("SELECT count(*) FROM ceir_mock_legal_holds").fetchone()[0] == 0
+print("SAID oversight RLS checks passed")
