@@ -94,7 +94,7 @@ def create_plan(payload: RequestApproval, request: Request, db: Session = Depend
         db.flush()
         append_event(db, case.id, "retention_plan_requested", actor.subject,
                      payload.rationale_reference)
-        db.commit()
+        commit_case(db)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Concurrent retention plan conflict") from None
@@ -133,7 +133,7 @@ def decide_plan(plan_id: str, payload: DecideApproval, request: Request,
         raise HTTPException(status_code=409, detail="Retention plan already decided")
     append_event(db, case.id, "retention_" + new_state,
                  actor.subject, payload.approval_reference)
-    db.commit()
+    commit_case(db)
     return approval_view(db.get(RetentionApproval, plan_id))
 
 @router.get("/checkpoints/{checkpoint_id}/manifest")
