@@ -15,10 +15,11 @@ from .authority import issue, get_receipt, load_encrypted_signer, open_store, re
 from .recovery import backup_store, verify_backup, restore_backup, inspect_store
 from .drill import recovery_drill
 from .key_policy import validate_registry
+from .operations import health_report, check_inventory, record_drill
 
 def run():
     parser = argparse.ArgumentParser(description="SAID mock independent audit authority (offline only)")
-    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry"])
+    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry", "health", "inventory", "drill-report"])
     parser.add_argument("--store", required=True)
     parser.add_argument("--key-file")
     parser.add_argument("--key-id")
@@ -28,7 +29,33 @@ def run():
     parser.add_argument("--expected-sha256")
     parser.add_argument("--drill-directory")
     parser.add_argument("--registry")
+    parser.add_argument("--inventory")
+    parser.add_argument("--inventory-directory")
+    parser.add_argument("--report-path")
     args = parser.parse_args()
+    if args.action == "health":
+        result = health_report(args.store)
+        print(json.dumps(result, sort_keys=True))
+        if not result["healthy"]:
+            raise SystemExit(2)
+        return
+    if args.action == "inventory":
+        if not args.inventory or not args.inventory_directory:
+            parser.error("inventory requires --inventory and --inventory-directory")
+        content = json.loads(Path(args.inventory).read_text())
+        result = check_inventory(args.inventory_directory, content)
+        print(json.dumps(result, sort_keys=True))
+        if not result["healthy"]:
+            raise SystemExit(2)
+        return
+    if args.action == "drill-report":
+        if not args.drill_directory or not args.report_path:
+            parser.error("drill-report requires --drill-directory and --report-path")
+        result = record_drill(args.store, args.drill_directory, args.report_path)
+        print(json.dumps(result, sort_keys=True))
+        if result["outcome"] != "success":
+            raise SystemExit(2)
+        return
     if args.action == "drill":
         if not args.drill_directory:
             parser.error("drill requires --drill-directory")
