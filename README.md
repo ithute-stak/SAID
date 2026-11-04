@@ -1,4 +1,4 @@
-# SAID — Secure Asset Identity & Detection
+SAID Phase 25 offline audit-host evidence assessment and role-separation checks: see `docs/PHASE25_AUDIT_HOST_EVIDENCE.md` (not production attestation).\n\n# SAID — Secure Asset Identity & Detection
 
 **Protecting Devices. Verifying Ownership.**
 
