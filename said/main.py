@@ -107,8 +107,9 @@ from said.links import router as links_router
 from said.ceir.api import router as ceir_router
 from said.ceir.exchange import router as ceir_exchange_router
 from said.ceir.quality import router as ceir_quality_router
+from said.ceir.intelligence import router as ceir_intelligence_router
 
-app = FastAPI(title="SAID Platform API", version="0.12.0",
+app = FastAPI(title="SAID Platform API", version="0.13.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
@@ -117,6 +118,7 @@ app.include_router(links_router)
 app.include_router(ceir_router)
 app.include_router(ceir_exchange_router)
 app.include_router(ceir_quality_router)
+app.include_router(ceir_intelligence_router)
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 app.mount("/console/static", StaticFiles(directory=WEB_ROOT), name="console-static")
