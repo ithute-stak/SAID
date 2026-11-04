@@ -1,0 +1,12 @@
+# NOT enabled or installed by the repository. Operator must approve schedule.
+[Unit]
+Description=Example scheduled SAID offline audit recovery drill
+
+[Timer]
+OnCalendar=weekly
+Persistent=false
+RandomizedDelaySec=3600
+Unit=said-audit-drill.service
+
+[Install]
+WantedBy=timers.target

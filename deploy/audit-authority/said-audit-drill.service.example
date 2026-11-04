@@ -1,0 +1,30 @@
+# Example only: an authorized operator must provision the independent host.
+# Do NOT install this unit on the SAID application VPS.
+[Unit]
+Description=SAID audit authority offline recovery drill (simulation)
+Documentation=man:systemd.service(5)
+ConditionPathExists=/var/lib/said-audit/receipts.db
+
+[Service]
+Type=oneshot
+User=said-audit
+Group=said-audit
+UMask=0077
+WorkingDirectory=/opt/said-audit
+ExecStart=/opt/said-audit/venv/bin/python -m audit_authority.cli drill --store /var/lib/said-audit/receipts.db --drill-directory /var/lib/said-audit/drills
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/var/lib/said-audit/drills
+ReadOnlyPaths=/var/lib/said-audit/receipts.db
+# No private key access or signing passphrase is configured.

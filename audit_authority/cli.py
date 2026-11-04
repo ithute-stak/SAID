@@ -13,10 +13,12 @@ from pathlib import Path
 
 from .authority import issue, get_receipt, load_encrypted_signer, open_store, reconcile
 from .recovery import backup_store, verify_backup, restore_backup, inspect_store
+from .drill import recovery_drill
+from .key_policy import validate_registry
 
 def run():
     parser = argparse.ArgumentParser(description="SAID mock independent audit authority (offline only)")
-    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore"])
+    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry"])
     parser.add_argument("--store", required=True)
     parser.add_argument("--key-file")
     parser.add_argument("--key-id")
@@ -24,7 +26,19 @@ def run():
     parser.add_argument("--checkpoint-id")
     parser.add_argument("--backup-path")
     parser.add_argument("--expected-sha256")
+    parser.add_argument("--drill-directory")
+    parser.add_argument("--registry")
     args = parser.parse_args()
+    if args.action == "drill":
+        if not args.drill_directory:
+            parser.error("drill requires --drill-directory")
+        print(json.dumps(recovery_drill(args.store, args.drill_directory), sort_keys=True))
+        return
+    if args.action == "validate-key-registry":
+        if not args.registry:
+            parser.error("validate-key-registry requires --registry")
+        print(json.dumps(validate_registry(json.loads(Path(args.registry).read_text())), sort_keys=True))
+        return
     if args.action in {"backup", "verify-backup", "restore"}:
         if not args.backup_path:
             parser.error("backup and restore operations require --backup-path")
