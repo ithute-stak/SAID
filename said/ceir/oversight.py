@@ -20,7 +20,7 @@ from said.main import Base, database
 from said.ceir.api import require_central
 from said.ceir.appeals import MockAppeal
 from said.ceir.quality import MockInvestigation
-from said.ceir.governance import ReviewLedger, ZERO_DIGEST, digest_of
+from said.ceir.governance import ReviewLedger, ZERO_DIGEST, digest_of, lock_case
 
 router = APIRouter(prefix="/api/v1/ceir/sandbox/oversight",
                    tags=["CEIR simulated supervisory oversight"])
@@ -112,9 +112,7 @@ def summary(request: Request, db: Session = Depends(database)):
 @router.post("/checkpoints", status_code=201)
 def create_checkpoint(payload: ReferenceInput, request: Request, db: Session = Depends(database)):
     actor = auditor(request)
-    case = db.get(MockInvestigation, payload.investigation_id)
-    if case is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    case = lock_case(db, payload.investigation_id)
     if actor.subject in (case.opened_by, case.reviewer_reference):
         raise HTTPException(status_code=403, detail="Independent auditor required")
     sequence, head = valid_head(db, case.id)
@@ -181,9 +179,7 @@ def check_checkpoints(investigation_id: str, request: Request,
 @router.post("/holds", status_code=201)
 def create_hold(payload: ReferenceInput, request: Request, db: Session = Depends(database)):
     actor = supervisor(request)
-    case = db.get(MockInvestigation, payload.investigation_id)
-    if case is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    case = lock_case(db, payload.investigation_id)
     if actor.subject in (case.opened_by, case.reviewer_reference):
         raise HTTPException(status_code=403, detail="Independent supervisor required")
     existing = db.scalar(select(LegalHold).where(LegalHold.investigation_id == case.id))
