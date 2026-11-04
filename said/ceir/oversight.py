@@ -122,8 +122,8 @@ def create_checkpoint(payload: ReferenceInput, request: Request, db: Session = D
         MockCheckpoint.investigation_id == case.id,
         MockCheckpoint.sequence == sequence))
     if prior is not None:
-        if prior.head_digest != head:
-            raise HTTPException(status_code=409, detail="Checkpoint differs from ledger")
+        if prior.head_digest != head or prior.reason_reference != payload.reason_reference:
+            raise HTTPException(status_code=409, detail="Checkpoint differs from ledger or rationale")
         return checkpoint_view(prior)
     row = MockCheckpoint(
         id=str(uuid.uuid4()), investigation_id=case.id,
