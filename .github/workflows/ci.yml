@@ -93,3 +93,10 @@ jobs:
           SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
           SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
         run: python tests/pg_fault_injection_integration.py
+
+      - name: Verify concurrent sandbox status revisions and event rollback
+        env:
+          SAID_DATABASE_URL: postgresql+psycopg://said_ci:said_ci_password@localhost:5432/said_ci
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+          SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
+        run: python tests/pg_revision_resilience.py
