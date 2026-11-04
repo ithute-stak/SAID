@@ -12,19 +12,39 @@ import os
 from pathlib import Path
 
 from .authority import issue, get_receipt, load_encrypted_signer, open_store, reconcile
+from .recovery import backup_store, verify_backup, restore_backup, inspect_store
 
 def run():
     parser = argparse.ArgumentParser(description="SAID mock independent audit authority (offline only)")
-    parser.add_argument("action", choices=["issue", "get", "reconcile"])
+    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore"])
     parser.add_argument("--store", required=True)
     parser.add_argument("--key-file")
     parser.add_argument("--key-id")
     parser.add_argument("--manifest")
     parser.add_argument("--checkpoint-id")
+    parser.add_argument("--backup-path")
+    parser.add_argument("--expected-sha256")
     args = parser.parse_args()
+    if args.action in {"backup", "verify-backup", "restore"}:
+        if not args.backup_path:
+            parser.error("backup and restore operations require --backup-path")
+        if args.action == "backup":
+            result = backup_store(args.store, args.backup_path)
+        elif args.action == "verify-backup":
+            if not args.expected_sha256:
+                parser.error("verify-backup requires --expected-sha256")
+            result = verify_backup(args.backup_path, args.expected_sha256)
+        else:
+            if not args.expected_sha256:
+                parser.error("restore requires --expected-sha256")
+            result = restore_backup(args.backup_path, args.store, args.expected_sha256)
+        print(json.dumps(result, sort_keys=True))
+        return
     db = open_store(args.store)
     try:
-        if args.action == "issue":
+        if args.action == "inspect":
+            result = inspect_store(db)
+        elif args.action == "issue":
             if not args.key_file or not args.key_id or not args.manifest:
                 parser.error("issue requires --key-file, --key-id and --manifest")
             signer = load_encrypted_signer(args.key_file, os.getenv("AUDIT_AUTHORITY_PASSPHRASE", ""))
