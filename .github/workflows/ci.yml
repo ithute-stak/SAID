@@ -66,6 +66,7 @@ jobs:
           assert inspector.get_foreign_keys('ceir_mock_appeals')
           assert inspector.get_foreign_keys('ceir_mock_checkpoints')
           assert inspector.get_foreign_keys('ceir_mock_legal_holds')
+          assert inspector.get_foreign_keys('ceir_mock_retention_approvals')
           assert 'opened_by' in {c['name'] for c in inspector.get_columns('ceir_mock_investigations')}
           assert 'imei_token' in {c['name'] for c in inspector.get_columns('ceir_mock_observations')}
           assert 'reviewed_by' in {c['name'] for c in inspector.get_columns('ownership_claims')}
@@ -73,7 +74,7 @@ jobs:
           assert any(c['name'] == 'uq_one_ownership_claim_per_device_phase2'
                      for c in inspector.get_unique_constraints('ownership_claims'))
           with engine.connect() as db:
-              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0013_oversight"
+              assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0014_assurance"
           PY
       - name: Verify PostgreSQL row-level security with restricted database role
         env:
