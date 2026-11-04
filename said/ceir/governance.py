@@ -43,7 +43,7 @@ def digest_of(row: ReviewLedger) -> str:
         "sequence": row.sequence, "action": row.action, "actor": row.actor_reference,
         "decision_reference": row.decision_reference,
         "previous_digest": row.previous_digest,
-        "created_at": row.created_at.isoformat(),
+        "created_at": row.created_at.replace(tzinfo=None).isoformat(),
     }, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
