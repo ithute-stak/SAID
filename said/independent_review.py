@@ -21,7 +21,7 @@ class Signoff(BaseModel):
     decision: Literal["approve", "reject", "pending"]
     evidence_reference: str = Field(min_length=6, max_length=200,
                                     pattern=r"^[A-Za-z0-9_./:#-]+$")
-    recorded_at: datetime
+    recorded_at: datetime = Field(strict=False)
 
 
 class ReviewPackage(BaseModel):
