@@ -29,3 +29,25 @@ receive approved retention limits, rotation and key custody controls.
 Future phases require legally approved evidence collection, role separation,
 independent review, immutable audit chain, false-positive appeal, security
 testing, and data-quality calibration against representative consented data.
+
+
+## Phase 14 — Review dashboard
+
+The responsive `/intelligence/` page is a controlled development interface.
+Its HTML shell is public, but all investigations, indicator signals,
+evidence provenance, assessments, and review mutations require the existing
+central administrator authorization. The page never requests raw IMEIs.
+
+The dashboard provides a case queue, counts for the current 100-item page,
+individual observation indicators, provenance metadata, assessment snapshots,
+an opt-in assessment action, and explicit one-time human review decisions.
+
+Access tokens are held in browser tab memory and cleared on disconnect.
+The page uses textContent rather than innerHTML to display untrusted values,
+with a restrictive Content Security Policy and same-origin API requests.
+
+**Limitations:** No production IdP login, reviewer-specific RBAC separation,
+independent second approval, tamper-evident event ledger or configurable
+retention enforcement has been implemented. These are future hardening phases;
+a central admin currently holds the review permission. No real operator
+data or blocking functionality exists.
