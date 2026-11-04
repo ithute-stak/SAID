@@ -19,7 +19,7 @@ from said.main import Base, database
 from said.ceir.api import require_central
 from said.ceir.appeals import MockAppeal
 from said.ceir.quality import MockInvestigation
-from said.ceir.governance import append_event, lock_case
+from said.ceir.governance import append_event, lock_case, commit_case
 from said.ceir.oversight import LegalHold, MockCheckpoint, valid_head
 
 router = APIRouter(prefix="/api/v1/ceir/sandbox/assurance",
