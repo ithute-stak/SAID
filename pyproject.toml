@@ -1,6 +1,6 @@
 [project]
 name = "said-platform"
-version = "0.24.0"
+version = "0.25.0"
 description = "SAID device identity and theft case prototype"
 requires-python = ">=3.11"
 dependencies = [
