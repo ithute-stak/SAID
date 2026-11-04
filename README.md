@@ -1,4 +1,4 @@
-SAID Phase 26 PostgreSQL case-ledger concurrency and atomic review decisions: see `docs/PHASE26_CONCURRENCY.md`. Tested in isolated PostgreSQL CI.\n\nSAID Phase 25 offline audit-host evidence assessment and role-separation checks: see `docs/PHASE25_AUDIT_HOST_EVIDENCE.md` (not production attestation).\n\n# SAID — Secure Asset Identity & Detection
+SAID Phase 27 coordinated case-first PostgreSQL transaction locks and explicit rollback on transient failures: see `docs/PHASE27_TRANSACTION_HARDENING.md`.\n\nSAID Phase 26 PostgreSQL case-ledger concurrency and atomic review decisions: see `docs/PHASE26_CONCURRENCY.md`. Tested in isolated PostgreSQL CI.\n\nSAID Phase 25 offline audit-host evidence assessment and role-separation checks: see `docs/PHASE25_AUDIT_HOST_EVIDENCE.md` (not production attestation).\n\n# SAID — Secure Asset Identity & Detection
 
 **Protecting Devices. Verifying Ownership.**
 

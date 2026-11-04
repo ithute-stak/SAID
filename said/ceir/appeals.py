@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from said.main import Base, database
 from said.ceir.api import require_central
 from said.ceir.quality import MockInvestigation
-from said.ceir.governance import append_event
+from said.ceir.governance import append_event, lock_case, commit_case
 
 router = APIRouter(prefix="/api/v1/ceir/sandbox/appeals", tags=["CEIR sandbox appeals"])
 Outcome = Literal["original_review_upheld", "returned_for_further_review"]
@@ -50,9 +50,7 @@ def submit(payload: AppealInput, request: Request, db: Session = Depends(databas
     actor = require_central(request)
     if "ceir_appeals_officer" not in actor.roles:
         raise HTTPException(status_code=403, detail="Appeals officer role required")
-    case = db.get(MockInvestigation, payload.investigation_id)
-    if case is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    case = lock_case(db, payload.investigation_id)
     if case.reviewer_reference is None or case.status == "pending_human_review":
         raise HTTPException(status_code=409, detail="Case must have an independent review first")
     if actor.subject in (case.opened_by, case.reviewer_reference):
@@ -67,7 +65,7 @@ def submit(payload: AppealInput, request: Request, db: Session = Depends(databas
         db.add(row)
         db.flush()
         append_event(db, case.id, "appeal_opened", actor.subject, payload.reason_reference)
-        db.commit()
+        commit_case(db)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Appeal conflict") from None
@@ -100,7 +98,8 @@ def decide(appeal_id: str, payload: AppealDecision, request: Request,
     row = db.get(MockAppeal, appeal_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Appeal not found")
-    case = db.get(MockInvestigation, row.investigation_id)
+    case = lock_case(db, row.investigation_id)
+    db.refresh(row)
     if actor.subject in (row.submitted_by, case.opened_by, case.reviewer_reference):
         raise HTTPException(status_code=403, detail="Independent supervisor required")
     result = db.execute(update(MockAppeal)
@@ -112,5 +111,5 @@ def decide(appeal_id: str, payload: AppealDecision, request: Request,
         raise HTTPException(status_code=409, detail="Appeal already decided")
     append_event(db, row.investigation_id, "appeal_" + payload.outcome,
                  actor.subject, payload.decision_reference)
-    db.commit()
+    commit_case(db)
     return view(db.get(MockAppeal, appeal_id))

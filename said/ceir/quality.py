@@ -146,9 +146,8 @@ def review(investigation_id: str, payload: ReviewInput, request: Request, db: Se
     actor = require_central(request)
     if "ceir_reviewer" not in actor.roles:
         raise HTTPException(status_code=403, detail="Independent CEIR reviewer role required")
-    row = db.get(MockInvestigation, investigation_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    from said.ceir.governance import lock_case
+    row = lock_case(db, investigation_id)
     if not row.opened_by or actor.subject == row.opened_by:
         raise HTTPException(status_code=403, detail="Independent reviewer required")
     if row.status != "pending_human_review":
@@ -167,7 +166,8 @@ def review(investigation_id: str, payload: ReviewInput, request: Request, db: Se
     try:
         append_event(db, row.id, "review_" + payload.decision,
                      actor.subject, payload.decision_reference)
-        db.commit()
+        from said.ceir.governance import commit_case
+        commit_case(db)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Concurrent review ledger conflict") from None
