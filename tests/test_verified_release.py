@@ -16,6 +16,8 @@ def successful():
         "event": "pull_request", "status": "completed", "conclusion": "success",
         "repository": {"full_name": "ithute-stak/SAID"},
         "run_attempt": 1,
+        "path": ".github/workflows/ci.yml",
+        "pull_requests": [{"base": {"ref": "main"}, "head": {"sha": SHA}}],
     }
     jobs = {"total_count": 1, "jobs": [{
         "name": "tests", "run_id": RUN, "status": "completed",
@@ -103,3 +105,43 @@ def test_invalid_revision_ref_rejected_before_network():
         fetch_and_verify("not-sha", RUN, "synthetic-read-token")
     with pytest.raises(ValueError):
         fetch_and_verify(SHA, 0, "synthetic-read-token")
+
+
+def test_workflow_path_and_pr_binding_fail_closed():
+    run, jobs, _ = successful()
+    run["path"] = ".github/workflows/untrusted.yml"
+    assert "workflow_path_mismatch" in verify_run(run, jobs, SHA, RUN)["issues"]
+    run, jobs, _ = successful()
+    run["pull_requests"] = []
+    assert "pull_request_main_base_not_verified" in verify_run(run, jobs, SHA, RUN)["issues"]
+    run, jobs, _ = successful()
+    run["pull_requests"][0]["base"]["ref"] = "malicious"
+    assert "pull_request_main_base_not_verified" in verify_run(run, jobs, SHA, RUN)["issues"]
+    run, jobs, _ = successful()
+    run["event"] = "push"
+    run["head_branch"] = "feature-branch"
+    assert "unexpected_push_branch" in verify_run(run, jobs, SHA, RUN)["issues"]
+
+
+def test_duplicate_step_names_are_not_allowed():
+    run, jobs, _ = successful()
+    jobs["jobs"][0]["steps"].append(dict(jobs["jobs"][0]["steps"][0]))
+    assert "duplicate_job_steps" in verify_run(run, jobs, SHA, RUN)["issues"]
+
+
+def test_force_push_and_branch_deletion_rejected():
+    _, _, protection = successful()
+    protection["allow_force_pushes"] = {"enabled": True}
+    assert "force_pushes_allowed" in verify_branch_protection(protection)["issues"]
+    _, _, protection = successful()
+    protection["allow_deletions"] = {"enabled": True}
+    assert "protected_branch_deletion_allowed" in verify_branch_protection(protection)["issues"]
+
+
+def test_redirect_handler_rejects_api_redirect():
+    import urllib.request
+    from said.verified_release import RejectRedirects
+    with pytest.raises(ValueError, match="redirect"):
+        RejectRedirects().redirect_request(
+            urllib.request.Request("https://api.github.com/repos/ithute-stak/SAID/actions/runs/1"),
+            None, 302, "Moved", {}, "https://example.org/steal")
