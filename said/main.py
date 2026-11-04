@@ -110,8 +110,9 @@ from said.ceir.quality import router as ceir_quality_router
 from said.ceir.intelligence import router as ceir_intelligence_router
 from said.ceir.governance import router as ceir_governance_router
 from said.ceir.appeals import router as ceir_appeals_router
+from said.ceir.oversight import router as ceir_oversight_router
 
-app = FastAPI(title="SAID Platform API", version="0.16.0",
+app = FastAPI(title="SAID Platform API", version="0.17.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
@@ -123,6 +124,7 @@ app.include_router(ceir_quality_router)
 app.include_router(ceir_intelligence_router)
 app.include_router(ceir_governance_router)
 app.include_router(ceir_appeals_router)
+app.include_router(ceir_oversight_router)
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 app.mount("/console/static", StaticFiles(directory=WEB_ROOT), name="console-static")
@@ -130,6 +132,15 @@ app.mount("/console/static", StaticFiles(directory=WEB_ROOT), name="console-stat
 @app.get("/protect/", include_in_schema=False)
 def protect_console():
     return FileResponse(WEB_ROOT / "protect.html", media_type="text/html", headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+    })
+
+@app.get("/oversight/", include_in_schema=False)
+def oversight_console():
+    """Public UI shell; all oversight data is protected by central roles."""
+    return FileResponse(WEB_ROOT / "oversight.html", media_type="text/html", headers={
         "Cache-Control": "no-store",
         "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
