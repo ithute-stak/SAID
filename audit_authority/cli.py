@@ -16,10 +16,11 @@ from .recovery import backup_store, verify_backup, restore_backup, inspect_store
 from .drill import recovery_drill
 from .key_policy import validate_registry
 from .operations import health_report, check_inventory, record_drill
+from .readiness import check_unit, readiness_report
 
 def run():
     parser = argparse.ArgumentParser(description="SAID mock independent audit authority (offline only)")
-    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry", "health", "inventory", "drill-report"])
+    parser.add_argument("action", choices=["issue", "get", "reconcile", "inspect", "backup", "verify-backup", "restore", "drill", "validate-key-registry", "health", "inventory", "drill-report", "check-unit", "readiness"])
     parser.add_argument("--store", required=True)
     parser.add_argument("--key-file")
     parser.add_argument("--key-id")
@@ -32,7 +33,29 @@ def run():
     parser.add_argument("--inventory")
     parser.add_argument("--inventory-directory")
     parser.add_argument("--report-path")
+    parser.add_argument("--unit-file")
+    parser.add_argument("--assessment")
     args = parser.parse_args()
+    if args.action == "check-unit":
+        if not args.unit_file:
+            parser.error("check-unit requires --unit-file")
+        result = check_unit(args.unit_file)
+        print(json.dumps(result, sort_keys=True))
+        if not result["passed"]:
+            raise SystemExit(2)
+        return
+    if args.action == "readiness":
+        if not args.unit_file or not args.assessment:
+            parser.error("readiness requires --unit-file and --assessment")
+        assessment = json.loads(Path(args.assessment).read_text())
+        if not isinstance(assessment, dict) or set(assessment) != {"objectives", "incident"}:
+            parser.error("assessment must contain objectives and incident only")
+        result = readiness_report(args.unit_file, args.store,
+                                  assessment["objectives"], assessment["incident"])
+        print(json.dumps(result, sort_keys=True))
+        if not result["passed"]:
+            raise SystemExit(2)
+        return
     if args.action == "health":
         result = health_report(args.store)
         print(json.dumps(result, sort_keys=True))
