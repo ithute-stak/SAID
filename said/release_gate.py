@@ -17,7 +17,7 @@ REQUIRED = (
     "revision_concurrency",
 )
 CI_WORKFLOW_STEPS = (
-    "Run python -m pytest -q",
+    "run: python -m pytest -q",
     "Check clean migration on SQLite",
     "Verify migration on PostgreSQL with real constraints",
     "Verify PostgreSQL row-level security with restricted database role",
