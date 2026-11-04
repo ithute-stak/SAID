@@ -60,9 +60,11 @@ def verify_pr_reviews(pr: dict, reviews: list, *, commit_sha: str,
             continue
         login = (entry.get("user") or {}).get("login")
         timestamp = _iso(entry.get("submitted_at"))
-        if not isinstance(login, str) or timestamp is None:
+        if not isinstance(login, str):
             issues.append("incomplete_review_metadata")
             continue
+        if timestamp is None:
+            issues.append("incomplete_review_metadata")
         key = login.lower()
         # REST review IDs are monotonically increasing for later review events;
         # fail if IDs cannot be compared or duplicate review IDs are present.
