@@ -35,7 +35,11 @@ MAX_RESPONSE = 2_000_000
 
 def github_json(path: str, token: str) -> dict:
     """Allow only fixed GitHub API path segments; enforce response size."""
-    if not re.fullmatch(r"/repos/ithute-stak/SAID/(actions/runs/[0-9]+(?:/jobs)?|branches/main/protection|pulls/[1-9][0-9]*(?:/reviews\\?per_page=100)?|rules/branches/main\\?per_page=100|rulesets\\?per_page=100|rulesets/[1-9][0-9]*)", path):
+    team_path = re.fullmatch(
+        r"/orgs/ithute-stak/teams/(said-security-reviewers|said-operations-reviewers)/memberships/[A-Za-z0-9-]{1,39}",
+        path)
+    repo_path = re.fullmatch(r"/repos/ithute-stak/SAID/(actions/runs/[0-9]+(?:/jobs)?|branches/main/protection|pulls/[1-9][0-9]*(?:/reviews\\?per_page=100)?|rules/branches/main\\?per_page=100|rulesets\\?per_page=100|rulesets/[1-9][0-9]*)", path)
+    if not (team_path or repo_path):
         raise ValueError("Unexpected GitHub API path")
     request = urllib.request.Request(
         EXPECTED_ACTIONS + path,
