@@ -30,7 +30,7 @@ def session():
 device_id = str(uuid.uuid4())
 entry_id = str(uuid.uuid4())
 with session() as db:
-    db.add(Device(id=device_id, imei="490154203237518",
+    db.add(Device(id=device_id, imei="490154203237526",
                   owner_reference="synthetic-test-only",
                   institution_id="said-central",
                   make="Synthetic", model="Test",
