@@ -109,7 +109,7 @@ from said.ceir.exchange import router as ceir_exchange_router
 from said.ceir.quality import router as ceir_quality_router
 from said.ceir.intelligence import router as ceir_intelligence_router
 
-app = FastAPI(title="SAID Platform API", version="0.13.0",
+app = FastAPI(title="SAID Platform API", version="0.14.0",
               description="Admin-only prototype. No identity verification or network blocking.")
 
 app.include_router(ownership_router)
@@ -126,6 +126,15 @@ app.mount("/console/static", StaticFiles(directory=WEB_ROOT), name="console-stat
 @app.get("/protect/", include_in_schema=False)
 def protect_console():
     return FileResponse(WEB_ROOT / "protect.html", media_type="text/html", headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+        "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+    })
+
+@app.get("/intelligence/", include_in_schema=False)
+def intelligence_console():
+    """Public UI shell only; all investigation data requires central API auth."""
+    return FileResponse(WEB_ROOT / "intelligence.html", media_type="text/html", headers={
         "Cache-Control": "no-store",
         "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
