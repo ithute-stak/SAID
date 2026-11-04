@@ -19,7 +19,7 @@ from said.main import Base, database
 from said.ceir.api import require_central
 from said.ceir.appeals import MockAppeal
 from said.ceir.quality import MockInvestigation
-from said.ceir.governance import append_event
+from said.ceir.governance import append_event, lock_case
 from said.ceir.oversight import LegalHold, MockCheckpoint, valid_head
 
 router = APIRouter(prefix="/api/v1/ceir/sandbox/assurance",
@@ -79,9 +79,7 @@ def approval_view(row: RetentionApproval):
 @router.post("/retention-plans", status_code=201)
 def create_plan(payload: RequestApproval, request: Request, db: Session = Depends(database)):
     actor = require_role(request, "ceir_supervisor")
-    case = db.get(MockInvestigation, payload.investigation_id)
-    if case is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    case = lock_case(db, payload.investigation_id)
     if actor.subject in (case.opened_by, case.reviewer_reference):
         raise HTTPException(status_code=403, detail="Independent supervisor required")
     ensure_case_eligible(db, case)
@@ -118,7 +116,8 @@ def decide_plan(plan_id: str, payload: DecideApproval, request: Request,
     row = db.get(RetentionApproval, plan_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Retention plan not found")
-    case = db.get(MockInvestigation, row.investigation_id)
+    case = lock_case(db, row.investigation_id)
+    db.refresh(row)
     if actor.subject in (case.opened_by, case.reviewer_reference, row.requested_by):
         raise HTTPException(status_code=403, detail="Independent retention approver required")
     ensure_case_eligible(db, case)
@@ -143,7 +142,8 @@ def checkpoint_manifest(checkpoint_id: str, request: Request, db: Session = Depe
     row = db.get(MockCheckpoint, checkpoint_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Audit checkpoint not found")
-    case = db.get(MockInvestigation, row.investigation_id)
+    case = lock_case(db, row.investigation_id)
+    db.refresh(row)
     if actor.subject in (case.opened_by, case.reviewer_reference):
         raise HTTPException(status_code=403, detail="Independent auditor required")
     length, _ = valid_head(db, case.id)
