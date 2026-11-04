@@ -65,7 +65,7 @@ def submit(payload: AppealInput, request: Request, db: Session = Depends(databas
         db.add(row)
         db.flush()
         append_event(db, case.id, "appeal_opened", actor.subject, payload.reason_reference)
-        db.commit()
+        commit_case(db)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Appeal conflict") from None
@@ -111,5 +111,5 @@ def decide(appeal_id: str, payload: AppealDecision, request: Request,
         raise HTTPException(status_code=409, detail="Appeal already decided")
     append_event(db, row.investigation_id, "appeal_" + payload.outcome,
                  actor.subject, payload.decision_reference)
-    db.commit()
+    commit_case(db)
     return view(db.get(MockAppeal, appeal_id))
