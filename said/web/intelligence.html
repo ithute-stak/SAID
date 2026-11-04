@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>SAID Intelligence | Powered by Ithute</title>
+<link rel="stylesheet" href="/console/static/style.css">
+<link rel="stylesheet" href="/console/static/intelligence.css">
+<script type="module" src="/console/static/intelligence.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="/console/"><svg width="48" height="56" viewBox="0 0 48 56" role="img" aria-label="SAID shield"><path d="M24 3 44 11v15c0 15-10 23-20 27C14 49 4 41 4 26V11Z" fill="#15b8a6"/><rect x="17" y="13" width="14" height="25" rx="3" fill="#0b1f3a"/><path d="m16 30 6 6 12-14" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/></svg><span><strong>SAID</strong><small>Secure Asset Identity &amp; Detection</small></span></a>
+<div class="nav-title">INTELLIGENCE WORKSPACE</div>
+<nav aria-label="Intelligence navigation"><a href="#review-queue">Review queue</a><a href="#case-detail">Case details</a><a href="/console/">SAID Control</a></nav>
+<div class="sidebar-bottom"><strong>Powered by Ithute</strong><span>Digital Solutions</span><p>Offline CEIR simulation · No operator connection</p></div>
+</aside>
+<main>
+<header class="topbar"><span>SAID Intelligence / Controlled prototype</span><span class="pill">Central authorization required</span></header>
+<div class="content">
+<section class="intro"><div><p class="eyebrow">SAID INTELLIGENCE • PHASE 14</p><h1>Investigation review dashboard</h1><p>Review simulated anomaly signals, evidence provenance and assessment histories. No findings are automatically classified as theft or fraud.</p></div></section>
+<div class="warning" role="note"><strong>Simulation only.</strong> Repeat IMEI observations are not proof of cloned equipment, modified IMEIs or theft. This dashboard does not connect to mobile networks or issue blocking instructions.</div>
+<section class="panel">
+<h2>Restricted API session</h2>
+<p>For controlled development testing, enter a short-lived central SAID bearer token. The token is held only in tab memory. A production login system is not yet available.</p>
+<form id="connect" class="form-grid">
+<label class="wide">Central SAID bearer token<input type="password" name="token" autocomplete="off" required placeholder="Temporary testing token"></label>
+<button type="submit">Connect</button><button type="button" id="disconnect" class="secondary">Disconnect</button>
+</form><p id="connection" class="session-status" aria-live="polite">Disconnected</p>
+</section>
+<section class="cards" aria-label="Case summary">
+<div class="metric"><span>Total cases in current page</span><strong id="count-total">—</strong><small>Up to 100 central cases</small></div>
+<div class="metric"><span>Awaiting review</span><strong id="count-pending">—</strong><small>Human review required</small></div>
+<div class="metric"><span>Reviewed</span><strong id="count-reviewed">—</strong><small>Sandbox decisions only</small></div>
+</section>
+<section class="panel" id="review-queue">
+<div class="panel-head"><div><h2>Investigation queue</h2><p>Select an inquiry to inspect its signals and provenance.</p></div><button type="button" id="refresh">Refresh queue</button></div>
+<div id="queue-message" class="session-status" role="status" aria-live="polite">Connect to load cases.</div>
+<div class="table-wrap"><table class="case-table"><thead><tr><th>Case ID</th><th>Status</th><th>Review</th><th>Action</th></tr></thead><tbody id="case-rows"></tbody></table></div>
+</section>
+<section class="panel" id="case-detail">
+<h2>Selected investigation</h2><p>Only mock-source references and explainable indicators appear here; no raw IMEI or subscriber records.</p>
+<div id="selected" class="selected" aria-live="polite">Select an investigation from the queue.</div>
+<div class="grid-two">
+<div><h3>Observation indicators</h3><pre class="result" id="signals">No case selected.</pre></div>
+<div><h3>Evidence provenance</h3><pre class="result" id="provenance">No case selected.</pre></div>
+</div>
+<h3>Assessment snapshots</h3><pre class="result" id="history">No case selected.</pre>
+<div class="review-actions">
+<button type="button" id="assess" disabled>Create new assessment snapshot</button>
+</div>
+<h3>Human review decision</h3>
+<p>Decisions only update the investigation case. They cannot modify a device record, validate ownership, or trigger a network action.</p>
+<form id="review" class="form-grid">
+<label>Decision
+<select name="decision"><option value="needs_investigation">Further investigation needed</option><option value="insufficient_evidence">Insufficient evidence</option><option value="closed_false_positive">Close as false positive</option></select>
+</label>
+<label>Opaque decision reference<input name="decision_reference" required minlength="3" maxlength="120" pattern="[A-Za-z0-9_-]+" placeholder="review_case_2026"></label>
+<button type="submit" id="submit-review" disabled>Record decision</button>
+</form>
+<div class="result" id="review-status" aria-live="polite">No review submitted.</div>
+</section>
+<footer>SAID — Secure Asset Identity &amp; Detection · Powered by Ithute Digital Solutions</footer>
+</div>
+</main></div>
+</body></html>
