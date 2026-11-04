@@ -14,6 +14,7 @@ def upgrade():
                   sa.ForeignKey("ceir_mock_investigations.id"), nullable=False),
         sa.Column("sequence", sa.Integer(), nullable=False),
         sa.Column("head_digest", sa.String(64), nullable=False),
+        sa.Column("reason_reference", sa.String(120), nullable=False),
         sa.Column("checkpoint_digest", sa.String(64), nullable=False),
         sa.Column("recorded_by", sa.String(200), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
