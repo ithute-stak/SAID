@@ -104,3 +104,61 @@ with session() as db:
         previous = event.digest
 
 print("PostgreSQL concurrent ledger and reviewer CAS tests passed")
+
+
+# Phase 27: different workflows on the same reviewed case must serialize.
+# Both must commit once, and the mixed ledger must remain gap-free.
+from said.ceir.governance import lock_case, commit_case
+from said.ceir.appeals import MockAppeal
+from said.ceir.oversight import LegalHold
+
+gate_mixed = Barrier(2)
+
+def mixed_workflow(kind: str):
+    gate_mixed.wait(timeout=15)
+    with session() as db:
+        case = lock_case(db, case_id)
+        assert case.reviewer_reference is not None
+        if kind == "appeal":
+            db.add(MockAppeal(
+                id=str(uuid.uuid4()), investigation_id=case_id,
+                state="pending_supervisor",
+                reason_reference="synthetic_appeal",
+                submitted_by="appeals-officer",
+            ))
+            db.flush()
+            append_event(db, case_id, "appeal_opened",
+                         "appeals-officer", "synthetic_appeal")
+        else:
+            db.add(LegalHold(
+                id=str(uuid.uuid4()), investigation_id=case_id,
+                reason_reference="synthetic_hold",
+                created_by="supervisor",
+                active=True,
+            ))
+            db.flush()
+            append_event(db, case_id, "legal_hold_created",
+                         "supervisor", "synthetic_hold")
+        commit_case(db)
+    return kind
+
+with ThreadPoolExecutor(max_workers=2) as pool:
+    assert sorted(pool.map(mixed_workflow, ("appeal", "hold"))) == ["appeal", "hold"]
+
+with session() as db:
+    assert len(db.scalars(select(MockAppeal).where(
+        MockAppeal.investigation_id == case_id)).all()) == 1
+    assert len(db.scalars(select(LegalHold).where(
+        LegalHold.investigation_id == case_id)).all()) == 1
+    events = db.scalars(select(ReviewLedger).where(
+        ReviewLedger.investigation_id == case_id).order_by(
+            ReviewLedger.sequence)).all()
+    assert len(events) == writers + 4
+    previous = ZERO_DIGEST
+    for number, row in enumerate(events, 1):
+        assert row.sequence == number
+        assert row.previous_digest == previous
+        assert row.digest == digest_of(row)
+        previous = row.digest
+
+print("PostgreSQL mixed appeal/hold transaction locking passed")
