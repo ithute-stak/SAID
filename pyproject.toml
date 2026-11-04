@@ -1,6 +1,6 @@
 [project]
 name = "said-platform"
-version = "0.19.0"
+version = "0.20.0"
 description = "SAID device identity and theft case prototype"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,7 +18,7 @@ test = ["pytest>=8,<10", "httpx>=0.27,<1"]
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["said*"]
+include = ["said*", "audit_authority*"]
 exclude = ["migrations*", "tests*"]
 
 [tool.setuptools.package-data]
