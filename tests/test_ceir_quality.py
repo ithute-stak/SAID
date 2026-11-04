@@ -46,10 +46,10 @@ def test_repeat_signal_review_and_safety(monkeypatch):
         iid = created.json()["id"]
         reviewed = client.post("/api/v1/ceir/sandbox/quality/investigations/" + iid + "/review", json={
             "decision": "insufficient_evidence", "decision_reference": "review_case_1"})
-        assert reviewed.status_code == 200
-        assert reviewed.json()["network_action_taken"] is False
+        assert reviewed.status_code == 403
+        assert reviewed.json()["detail"] == "Independent CEIR reviewer role required"
         assert client.post("/api/v1/ceir/sandbox/quality/investigations/" + iid + "/review", json={
-            "decision": "closed_false_positive", "decision_reference": "review_case_2"}).status_code == 409
+            "decision": "closed_false_positive", "decision_reference": "review_case_2"}).status_code == 403
         assert sample("mock_operator_alpha", "bad_" + uuid.uuid4().hex, "490154203237519").status_code == 422
 
 def test_access_and_secret_fail_closed(monkeypatch):

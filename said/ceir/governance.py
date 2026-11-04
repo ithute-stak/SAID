@@ -1,0 +1,99 @@
+"""Tamper-evident per-investigation event hashes and retention dry-run.
+
+A hash chain detects accidental/unauthorized row alteration but is NOT a
+cryptographic external timestamp, WORM store or a substitute for DB grants.
+"""
+import hashlib
+import json
+import os
+import uuid
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, select
+from sqlalchemy.orm import Mapped, Session, mapped_column
+
+from said.main import Base, database
+from said.ceir.api import require_central
+from said.ceir.quality import MockInvestigation, MockObservation
+
+router = APIRouter(prefix="/api/v1/ceir/sandbox/governance",
+                   tags=["SAID Intelligence sandbox governance"])
+
+ZERO_DIGEST = "0" * 64
+
+class ReviewLedger(Base):
+    __tablename__ = "ceir_mock_review_ledger"
+    __table_args__ = (UniqueConstraint("investigation_id", "sequence",
+                                       name="uq_ceir_review_ledger_sequence"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    investigation_id: Mapped[str] = mapped_column(ForeignKey("ceir_mock_investigations.id"),
+                                                 nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(60), nullable=False)
+    actor_reference: Mapped[str] = mapped_column(String(200), nullable=False)
+    decision_reference: Mapped[str] = mapped_column(String(120), nullable=False)
+    previous_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+def digest_of(row: ReviewLedger) -> str:
+    data = json.dumps({
+        "id": row.id, "investigation_id": row.investigation_id,
+        "sequence": row.sequence, "action": row.action, "actor": row.actor_reference,
+        "decision_reference": row.decision_reference,
+        "previous_digest": row.previous_digest,
+        "created_at": row.created_at.replace(tzinfo=None).isoformat(),
+    }, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+def append_event(db: Session, case_id: str, action: str, actor: str, reference: str):
+    history = db.scalars(select(ReviewLedger).where(
+        ReviewLedger.investigation_id == case_id).order_by(ReviewLedger.sequence)).all()
+    previous = ZERO_DIGEST
+    for index, old in enumerate(history, start=1):
+        if old.sequence != index or old.previous_digest != previous or old.digest != digest_of(old):
+            raise HTTPException(status_code=409, detail="Review ledger integrity conflict")
+        previous = old.digest
+    event = ReviewLedger(
+        id=str(uuid.uuid4()), investigation_id=case_id, sequence=len(history) + 1,
+        action=action, actor_reference=actor, decision_reference=reference,
+        previous_digest=previous, digest="",
+        created_at=datetime.now(timezone.utc),
+    )
+    event.digest = digest_of(event)
+    db.add(event)
+
+@router.get("/investigations/{investigation_id}/integrity")
+def verify(investigation_id: str, request: Request, db: Session = Depends(database)):
+    require_central(request)
+    if db.get(MockInvestigation, investigation_id) is None:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    events = db.scalars(select(ReviewLedger).where(
+        ReviewLedger.investigation_id == investigation_id).order_by(ReviewLedger.sequence)).all()
+    previous = ZERO_DIGEST
+    for index, event in enumerate(events, start=1):
+        if event.sequence != index or event.previous_digest != previous or event.digest != digest_of(event):
+            return {"investigation_id": investigation_id, "valid": False,
+                    "events_checked": index, "simulated": True}
+        previous = event.digest
+    return {"investigation_id": investigation_id, "valid": bool(events),
+            "events_checked": len(events), "simulated": True}
+
+@router.get("/retention/preview")
+def retention_preview(request: Request, db: Session = Depends(database)):
+    require_central(request)
+    raw = os.getenv("SAID_MOCK_RETENTION_DAYS", "90")
+    try:
+        days = int(raw)
+    except ValueError:
+        raise HTTPException(status_code=503, detail="Invalid retention configuration")
+    if not 7 <= days <= 365:
+        raise HTTPException(status_code=503, detail="Invalid retention configuration")
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    # Read-only; never delete evidence or break chain/foreign keys.
+    rows = db.scalars(select(MockObservation).where(
+        MockObservation.created_at < cutoff).limit(100)).all()
+    return {"retention_days": days, "cutoff": cutoff.isoformat(),
+            "old_observation_ids": [x.id for x in rows],
+            "preview_only": True, "records_deleted": 0, "simulated": True}

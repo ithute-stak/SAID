@@ -38,6 +38,7 @@ class MockInvestigation(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     observation_id: Mapped[str] = mapped_column(ForeignKey("ceir_mock_observations.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending_human_review")
+    opened_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     reviewer_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
     decision_reference: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
@@ -121,15 +122,19 @@ def analyze(observation_id: str, request: Request, db: Session = Depends(databas
 
 @router.post("/observations/{observation_id}/investigation", status_code=201)
 def open_investigation(observation_id: str, request: Request, db: Session = Depends(database)):
-    require_central(request)
+    actor = require_central(request)
     if db.get(MockObservation, observation_id) is None:
         raise HTTPException(status_code=404, detail="Observation not found")
     previous = db.scalar(select(MockInvestigation).where(MockInvestigation.observation_id == observation_id))
     if previous is not None:
         return {"id": previous.id, "status": previous.status, "simulated": True}
-    row = MockInvestigation(id=str(uuid.uuid4()), observation_id=observation_id)
+    row = MockInvestigation(id=str(uuid.uuid4()), observation_id=observation_id,
+                            opened_by=actor.subject)
+    from said.ceir.governance import append_event
     try:
         db.add(row)
+        db.flush()
+        append_event(db, row.id, "investigation_opened", actor.subject, "sandbox_opened")
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -139,14 +144,21 @@ def open_investigation(observation_id: str, request: Request, db: Session = Depe
 @router.post("/investigations/{investigation_id}/review")
 def review(investigation_id: str, payload: ReviewInput, request: Request, db: Session = Depends(database)):
     actor = require_central(request)
+    if "ceir_reviewer" not in actor.roles:
+        raise HTTPException(status_code=403, detail="Independent CEIR reviewer role required")
     row = db.get(MockInvestigation, investigation_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Investigation not found")
+    if not row.opened_by or actor.subject == row.opened_by:
+        raise HTTPException(status_code=403, detail="Independent reviewer required")
     if row.status != "pending_human_review":
         raise HTTPException(status_code=409, detail="Investigation already reviewed")
     row.status = payload.decision
     row.decision_reference = payload.decision_reference
     row.reviewer_reference = actor.subject
+    from said.ceir.governance import append_event
+    append_event(db, row.id, "review_" + payload.decision,
+                 actor.subject, payload.decision_reference)
     db.commit()
     return {"id": row.id, "status": row.status, "simulated": True,
             "network_action_taken": False}
