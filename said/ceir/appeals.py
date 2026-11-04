@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from said.main import Base, database
 from said.ceir.api import require_central
 from said.ceir.quality import MockInvestigation
-from said.ceir.governance import append_event, lock_case
+from said.ceir.governance import append_event, lock_case, commit_case
 
 router = APIRouter(prefix="/api/v1/ceir/sandbox/appeals", tags=["CEIR sandbox appeals"])
 Outcome = Literal["original_review_upheld", "returned_for_further_review"]
