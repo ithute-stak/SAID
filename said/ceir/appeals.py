@@ -76,7 +76,7 @@ def submit(payload: AppealInput, request: Request, db: Session = Depends(databas
 @router.get("")
 def queue(request: Request, db: Session = Depends(database)):
     actor = require_central(request)
-    if not (actor.roles & {"ceir_appeals_officer", "ceir_supervisor"}):
+    if not (actor.roles & {"ceir_appeals_officer", "ceir_supervisor", "ceir_auditor"}):
         raise HTTPException(status_code=403, detail="Appeals staff role required")
     rows = db.scalars(select(MockAppeal).order_by(MockAppeal.created_at, MockAppeal.id).limit(100)).all()
     return [view(r) for r in rows]

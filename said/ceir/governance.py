@@ -92,8 +92,29 @@ def retention_preview(request: Request, db: Session = Depends(database)):
         raise HTTPException(status_code=503, detail="Invalid retention configuration")
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     # Read-only; never delete evidence or break chain/foreign keys.
+    from said.ceir.appeals import MockAppeal
+    from said.ceir.oversight import LegalHold
+    # This read-only preview excludes records tied to active legal holds,
+    # pending appeals, or any open human investigation.
     rows = db.scalars(select(MockObservation).where(
-        MockObservation.created_at < cutoff).limit(100)).all()
+        MockObservation.created_at < cutoff).order_by(MockObservation.created_at)
+        .limit(100)).all()
+    eligible = []
+    protected = []
+    for obs in rows:
+        case = db.scalar(select(MockInvestigation).where(
+            MockInvestigation.observation_id == obs.id))
+        if case is not None:
+            hold = db.scalar(select(LegalHold.id).where(
+                LegalHold.investigation_id == case.id, LegalHold.active.is_(True)))
+            appeal = db.scalar(select(MockAppeal.id).where(
+                MockAppeal.investigation_id == case.id,
+                MockAppeal.state == "pending_supervisor"))
+            if hold or appeal or case.status == "pending_human_review":
+                protected.append(obs.id)
+                continue
+        eligible.append(obs.id)
     return {"retention_days": days, "cutoff": cutoff.isoformat(),
-            "old_observation_ids": [x.id for x in rows],
+            "old_observation_ids": eligible,
+            "excluded_protected_ids": protected,
             "preview_only": True, "records_deleted": 0, "simulated": True}
