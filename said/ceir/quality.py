@@ -12,7 +12,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, select
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -153,12 +153,23 @@ def review(investigation_id: str, payload: ReviewInput, request: Request, db: Se
         raise HTTPException(status_code=403, detail="Independent reviewer required")
     if row.status != "pending_human_review":
         raise HTTPException(status_code=409, detail="Investigation already reviewed")
-    row.status = payload.decision
-    row.decision_reference = payload.decision_reference
-    row.reviewer_reference = actor.subject
+    # Compare-and-swap permits only one independent reviewer to decide.
+    # PostgreSQL row locking serializes competing status transitions.
+    changed = db.execute(update(MockInvestigation).where(
+        MockInvestigation.id == row.id,
+        MockInvestigation.status == "pending_human_review").values(
+            status=payload.decision, decision_reference=payload.decision_reference,
+            reviewer_reference=actor.subject))
+    if changed.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Investigation already reviewed")
     from said.ceir.governance import append_event
-    append_event(db, row.id, "review_" + payload.decision,
-                 actor.subject, payload.decision_reference)
-    db.commit()
-    return {"id": row.id, "status": row.status, "simulated": True,
+    try:
+        append_event(db, row.id, "review_" + payload.decision,
+                     actor.subject, payload.decision_reference)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Concurrent review ledger conflict") from None
+    return {"id": row.id, "status": payload.decision, "simulated": True,
             "network_action_taken": False}

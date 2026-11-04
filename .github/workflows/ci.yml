@@ -81,3 +81,9 @@ jobs:
           SAID_DATABASE_URL: postgresql+psycopg://said_ci:said_ci_password@localhost:5432/said_ci
           SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
         run: python tests/pg_rls_integration.py
+      - name: Verify concurrent PostgreSQL CEIR case writers
+        env:
+          SAID_DATABASE_URL: postgresql+psycopg://said_ci:said_ci_password@localhost:5432/said_ci
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+          SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
+        run: python tests/pg_concurrency_integration.py
