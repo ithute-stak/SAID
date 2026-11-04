@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from said.main import Base, database
 from said.ceir.api import require_central
@@ -54,6 +55,25 @@ def lock_case(db: Session, case_id: str) -> MockInvestigation:
     if row is None:
         raise HTTPException(status_code=404, detail="Investigation not found")
     return row
+
+
+def commit_case(db: Session):
+    """Commit atomically; never blindly retry governance side effects.
+
+    Deadlocks and serialization errors require a NEW authorized request and
+    freshly validated state, not a replay inside a failed transaction.
+    """
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Concurrent case write conflict") from None
+    except OperationalError as exc:
+        db.rollback()
+        sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", None)
+        if sqlstate in {"40P01", "40001", "55P03"}:
+            raise HTTPException(status_code=409, detail="Transient transaction conflict; re-evaluate case before retry") from None
+        raise
 
 
 def append_event(db: Session, case_id: str, action: str, actor: str, reference: str):
