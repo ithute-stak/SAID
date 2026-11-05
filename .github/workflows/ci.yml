@@ -127,5 +127,24 @@ jobs:
       - name: Exercise in-memory synthetic failure alert delivery
         run: python -m said.alert_drill
 
+      - name: Validate isolated staging Compose policy (config only no containers)
+        run: |
+          set -eu
+          secret="$(mktemp)"
+          config="$(mktemp)"
+          trap 'rm -f "$secret" "$config"' EXIT
+          chmod 600 "$secret"
+          printf 'test-only-nonproduction-dummy-password-2026' > "$secret"
+          export SAID_STAGING_DB_PASSWORD_FILE="$secret"
+          export SAID_STAGING_DB_USER=said_staging
+          export SAID_STAGING_DB_NAME=said_staging
+          export SAID_STAGING_OIDC_ISSUER=https://id.example.invalid/oidc
+          export SAID_STAGING_OIDC_AUDIENCE=said-staging
+          export SAID_STAGING_OIDC_JWKS_URL=https://id.example.invalid/keys
+          export SAID_STAGING_API_IMAGE="ghcr.io/ithute-stak/said@sha256:$(printf 'a%.0s' {1..64})"
+          export SAID_STAGING_POSTGRES_IMAGE="postgres@sha256:$(printf 'b%.0s' {1..64})"
+          docker compose -f compose.staging.yml config --format json > "$config"
+          python -m said.staging_compose_policy --config-json "$config"
+
       - name: Verify SAID security release workflow policy (no deployment)
         run: python -m said.release_gate --workflow .github/workflows/ci.yml
