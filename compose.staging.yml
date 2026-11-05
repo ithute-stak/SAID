@@ -1,0 +1,69 @@
+# Phase 42: non-deploying staging-only template. No exposed ports.
+# Requires explicitly supplied immutable images and host-managed DB secret.
+# This is not a production or publicly reachable staging configuration.
+name: said-staging-isolated
+services:
+  api:
+    image: ${SAID_STAGING_API_IMAGE:?Immutable SHA256 API image required}
+    user: "10001:10001"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    command: ["python", "-m", "said.staging_entrypoint"]
+    environment:
+      SAID_ENVIRONMENT: staging
+      SAID_OIDC_ISSUER: ${SAID_STAGING_OIDC_ISSUER:?HTTPS issuer required}
+      SAID_OIDC_AUDIENCE: ${SAID_STAGING_OIDC_AUDIENCE:?Audience required}
+      SAID_OIDC_JWKS_URL: ${SAID_STAGING_OIDC_JWKS_URL:?HTTPS JWKS required}
+      SAID_STAGING_DB_USER: ${SAID_STAGING_DB_USER:?Database user required}
+      SAID_STAGING_DB_NAME: ${SAID_STAGING_DB_NAME:?Database name required}
+    secrets: [pg_password]
+    networks: [isolated]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: "no"
+
+  postgres:
+    image: ${SAID_STAGING_POSTGRES_IMAGE:?Immutable SHA256 Postgres image required}
+    environment:
+      POSTGRES_DB: ${SAID_STAGING_DB_NAME:?Database name required}
+      POSTGRES_USER: ${SAID_STAGING_DB_USER:?Database user required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    secrets: [pg_password]
+    networks: [isolated]
+    volumes:
+      - staging_db:/var/lib/postgresql/data
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SAID_STAGING_DB_USER:?Database user required} -d ${SAID_STAGING_DB_NAME:?Database name required}"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    restart: "no"
+
+networks:
+  isolated:
+    internal: true
+
+volumes:
+  staging_db:
+
+secrets:
+  pg_password:
+    file: ${SAID_STAGING_DB_PASSWORD_FILE:?Host-managed password file required}
