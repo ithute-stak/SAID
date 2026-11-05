@@ -50,7 +50,7 @@ def main():
     os.environ.update(config)
     # No database schema modifications and no production traffic.
     os.execvp("uvicorn", ["uvicorn", "said.main:app", "--host", "0.0.0.0",
-                          "--port", "8000", "--proxy-headers", "false"])
+                          "--port", "8000", "--no-proxy-headers"])
 
 
 if __name__ == "__main__":
