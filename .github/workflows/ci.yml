@@ -124,5 +124,8 @@ jobs:
           sudo apt-get install -y -qq postgresql-client
           python tests/ci_postgres_restore_drill.py
 
+      - name: Exercise in-memory synthetic failure alert delivery
+        run: python -m said.alert_drill
+
       - name: Verify SAID security release workflow policy (no deployment)
         run: python -m said.release_gate --workflow .github/workflows/ci.yml
