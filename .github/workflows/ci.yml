@@ -101,5 +101,28 @@ jobs:
           SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
         run: python tests/pg_revision_resilience.py
 
+      - name: Exercise concurrent synthetic ASGI requests (no external network)
+        env:
+          SAID_ENVIRONMENT: test
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+          SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
+        run: python tests/ci_asgi_staging_exercise.py
+
+      - name: Exercise disposable PostgreSQL backup and restoration
+        env:
+          SAID_ENVIRONMENT: test
+          SAID_DATABASE_URL: postgresql+psycopg://said_ci:said_ci_password@localhost:5432/said_ci
+          SAID_ADMIN_API_KEY: ci-test-secret-at-least-32-characters-1234
+          SAID_CONCURRENCY_TEST_DB: ephemeral-ci-only
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: said_ci
+          PGDATABASE: said_ci
+          PGPASSWORD: said_ci_password
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          python tests/ci_postgres_restore_drill.py
+
       - name: Verify SAID security release workflow policy (no deployment)
         run: python -m said.release_gate --workflow .github/workflows/ci.yml
