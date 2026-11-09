@@ -22,12 +22,50 @@ def verify_compose(config: dict) -> dict:
     if not isinstance(networks, dict) or not networks:
         issues.append("missing_networks")
         networks = {}
+    # Phase 43: prevent bypasses through additional Compose attachment surfaces.
+    if set(networks) != {"isolated"}:
+        issues.append("unexpected_networks")
+    if config.get("name") != "said-staging-isolated":
+        issues.append("unexpected_project_name")
+    if set(config.get("secrets", {})) != {"pg_password"}:
+        issues.append("unexpected_secrets")
+    for network_name, network in networks.items():
+        if isinstance(network, dict) and (network.get("external") or network.get("attachable")):
+            issues.append("externally_attachable_network_" + network_name)
     for name, network in networks.items():
         if not isinstance(network, dict) or network.get("internal") is not True:
             issues.append("network_not_internal_" + name)
     for name, service in services.items():
         if not isinstance(service, dict):
             raise ValueError("Malformed service")
+        if any(service.get(key) for key in (
+            "devices", "device_cgroup_rules", "volumes_from", "extra_hosts",
+            "dns", "dns_search", "links", "external_links", "security_opt_extra",
+            "network_mode", "pid", "ipc", "uts", "cgroup", "cgroup_parent",
+            "userns_mode", "privileged", "init", "profiles",
+        )):
+            issues.append(name + "_unsafe_host_or_network_override")
+        if service.get("build") or service.get("pull_policy") == "always":
+            issues.append(name + "_unapproved_image_source")
+        if service.get("cap_add"):
+            issues.append(name + "_capabilities_added")
+        if service.get("network_mode") or service.get("ports") or service.get("expose"):
+            issues.append(name + "_network_exposure")
+        if service.get("stdin_open") or service.get("tty"):
+            issues.append(name + "_interactive_terminal")
+        if not isinstance(service.get("networks"), (list, dict)) or set(service["networks"]) != {"isolated"}:
+            issues.append(name + "_network_scope_invalid")
+        if service.get("cpus") is None:
+            issues.append(name + "_cpu_limit_missing")
+        mounts = service.get("volumes", [])
+        if name == "api" and mounts:
+            issues.append("api_unexpected_volume")
+        if name == "postgres":
+            if len(mounts) != 1 or not isinstance(mounts[0], dict) or (
+                mounts[0].get("type") != "volume"
+                or mounts[0].get("source") != "staging_db"
+            ):
+                issues.append("postgres_unexpected_mount")
         if not DIGEST.fullmatch(service.get("image", "")):
             issues.append(name + "_image_not_digest_pinned")
         if service.get("ports") or service.get("expose") or service.get("network_mode") or service.get("privileged"):
