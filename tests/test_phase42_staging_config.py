@@ -21,7 +21,7 @@ def compose():
         "image": "example/said@sha256:" + "a" * 64,
         "user": "10001:10001", "read_only": True,
         "cap_drop": ["ALL"], "security_opt": ["no-new-privileges:true"],
-        "pids_limit": 128, "mem_limit": "512m",
+        "pids_limit": 128, "mem_limit": "512m", "cpus": 1.0,
         "restart": "no", "networks": ["isolated"],
         "secrets": [{"source": "pg_password"}], "healthcheck": {"test": ["CMD", "true"]},
         "command": ["python", "-m", "said.staging_entrypoint"],
@@ -30,13 +30,14 @@ def compose():
     db = {
         "image": "postgres@sha256:" + "b" * 64,
         "cap_drop": ["ALL"], "security_opt": ["no-new-privileges:true"],
-        "pids_limit": 128, "mem_limit": "1g",
+        "pids_limit": 128, "mem_limit": "1g", "cpus": 1.0,
         "restart": "no", "networks": ["isolated"],
         "secrets": [{"source": "pg_password"}],
         "healthcheck": {"test": ["CMD", "true"]},
         "environment": {"POSTGRES_PASSWORD_FILE": "/run/secrets/pg_password"},
+        "volumes": [{"type": "volume", "source": "staging_db", "target": "/var/lib/postgresql/data"}],
     }
-    return {"services": {"api": app, "postgres": db},
+    return {"name": "said-staging-isolated", "services": {"api": app, "postgres": db},
             "networks": {"isolated": {"internal": True}},
             "secrets": {"pg_password": {"file": "/host/secret"}}}
 
